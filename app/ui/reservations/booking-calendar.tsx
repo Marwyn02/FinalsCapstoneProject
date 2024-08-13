@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 
 import { Button, CountButton } from "@/components/ui/button";
+import { DateRange } from "react-day-picker";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Form,
@@ -17,9 +18,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+
 import RoomSelection from "./room-selection";
-import { rooms } from "@/app/lib/placeholder-data";
-import { DateRange } from "react-day-picker";
 
 const formSchema = z.object({
   guestAdult: z
@@ -53,7 +53,8 @@ const formSchema = z.object({
 export default function BookingCalendar() {
   const [adultCount, setAdultCount] = useState<number>(0);
   const [childCount, setChildCount] = useState<number>(0);
-  const [hasDate, setHasDate] = useState<boolean>(false);
+  const [roomSelect, setRoomSelect] = useState(false);
+  const [submitDisable, setSubmitDisable] = useState<boolean>(false);
 
   const [date, setDate] = useState<DateRange | undefined>({
     from: undefined,
@@ -68,11 +69,16 @@ export default function BookingCalendar() {
   });
 
   function onSubmit(data: z.infer<typeof formSchema>) {
-    console.log("====================================");
-    console.log({
-      title: "You submitted the following values:",
-      description: data,
-    });
+    try {
+      setSubmitDisable(true);
+      console.log("====================================");
+      console.log({
+        title: "You submitted the following values:",
+        description: data,
+      });
+    } catch (error) {
+      console.error("Reservation submission failed: ", error);
+    }
   }
 
   // ```
@@ -96,9 +102,11 @@ export default function BookingCalendar() {
     setChildCount(Math.max(0, Math.min(12, childCount + count)));
   };
 
+  console.log(date);
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 mb-5">
         <div className="grid md:grid-cols-2 gap-y-10">
           <section className="space-y-3">
             <h3 className="text-xl font-medium text-gray-500">
@@ -221,14 +229,46 @@ export default function BookingCalendar() {
                           to: field.value?.to ?? undefined,
                         }}
                         onSelect={(value) => {
-                          field.onChange({ from: value?.from, to: value?.to });
-                          setDate({ from: date?.from, to: date?.to });
+                          if (value?.from && value?.to) {
+                            const nextDay = new Date(value.from);
+                            nextDay.setDate(nextDay.getDate() + 1);
+
+                            if (value.to.getTime() === value.from.getTime()) {
+                              // Automatically set to the next day if the same day is selected
+                              value.to = nextDay;
+                            }
+
+                            field.onChange({ from: value.from, to: value.to });
+                            setDate(value);
+                          } else {
+                            field.onChange(value);
+                            setDate(value);
+                          }
                         }}
-                        disabled={(date) => date < new Date()}
+                        max={14}
+                        disabled={(date) => {
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0); // Ensure we are comparing only the date part
+
+                          // Disable past dates
+                          if (date < today) {
+                            return true;
+                          }
+
+                          // Disable dates less than or equal to the selected "from" date
+                          if (
+                            field.value?.from &&
+                            (date < field.value.from ||
+                              date === field.value.from)
+                          ) {
+                            return true;
+                          }
+
+                          return false; // All other dates are enabled
+                        }}
                         formatters={{
                           formatWeekdayName,
                         }}
-                        initialFocus
                       />
                     </FormControl>
                     <FormMessage />
@@ -238,9 +278,14 @@ export default function BookingCalendar() {
             </div>
           </section>
 
-          <RoomSelection />
+          <RoomSelection
+            date={date}
+            onRoomSelect={(selected: boolean) => setRoomSelect(selected)}
+          />
 
-          <Button type="submit">Submit</Button>
+          <Button type="submit" disabled={roomSelect && submitDisable}>
+            Continue
+          </Button>
         </div>
       </form>
     </Form>
