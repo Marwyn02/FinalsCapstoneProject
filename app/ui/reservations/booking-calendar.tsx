@@ -19,7 +19,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
-import RoomSelection from "./room-selection";
 import { reservations } from "@/app/lib/placeholder-data";
 
 const formSchema = z.object({
@@ -54,8 +53,6 @@ const formSchema = z.object({
 export default function BookingCalendar() {
   const [adultCount, setAdultCount] = useState<number>(0);
   const [childCount, setChildCount] = useState<number>(0);
-  const [roomSelect, setRoomSelect] = useState(false);
-  const [roomSelected, setRoomSelected] = useState("");
   const [disabledDates, setDisabledDates] = useState<Date[]>([]);
   const [submitDisable, setSubmitDisable] = useState<boolean>(false);
 
@@ -105,45 +102,34 @@ export default function BookingCalendar() {
     setChildCount(Math.max(0, Math.min(12, childCount + count)));
   };
 
-  const handleRoomSelection = (room: string) => {
-    setRoomSelected(room);
-    isDisabledDate();
-  };
-
   // ```
   // Disables the existing reservation dates
   // ```
-  const isDisabledDate = async () => {
-    const roomReservations = reservations.filter(
-      (reservation) => reservation.room === roomSelected
-    );
+  // const isDisabledDate = async () => {
+  //   const roomReservations = reservations.filter(
+  //     (reservation) => reservation.room === roomSelected
+  //   );
 
-    const dates = roomReservations.flatMap((reservation) => {
-      const { checkIn, checkOut } = reservation;
-      let currentDate = new Date(checkIn);
-      const disabledDatesArray = [];
+  //   const dates = roomReservations.flatMap((reservation) => {
+  //     const { checkIn, checkOut } = reservation;
+  //     let currentDate = new Date(checkIn);
+  //     const disabledDatesArray = [];
 
-      // Collect all dates between check-in and check-out
-      while (currentDate <= checkOut) {
-        disabledDatesArray.push(new Date(currentDate));
-        currentDate.setDate(currentDate.getDate() + 1); // Move to the next day
-      }
+  //     // Collect all dates between check-in and check-out
+  //     while (currentDate <= checkOut) {
+  //       disabledDatesArray.push(new Date(currentDate));
+  //       currentDate.setDate(currentDate.getDate() + 1); // Move to the next day
+  //     }
 
-      return disabledDatesArray;
-    });
+  //     return disabledDatesArray;
+  //   });
 
-    setDisabledDates(dates);
-  };
+  //   setDisabledDates(dates);
+  // };
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 mb-5">
         <div className="grid md:grid-cols-2 gap-y-10">
-          <RoomSelection
-            // date={date}
-            isRoomSelect={(selected: boolean) => setRoomSelect(selected)}
-            roomSelected={(value: string) => handleRoomSelection(value)}
-          />
-
           <section className="space-y-3">
             <h3 className="text-xl font-medium text-gray-500">
               <span className="text-black font-semibold">Select</span> number of
@@ -338,7 +324,7 @@ export default function BookingCalendar() {
             </div>
           </section>
 
-          <Button type="submit" disabled={roomSelect && submitDisable}>
+          <Button type="submit" disabled={submitDisable}>
             Continue
           </Button>
         </div>
