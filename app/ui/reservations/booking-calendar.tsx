@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -27,13 +27,6 @@ const formSchema = z.object({
     .min(1, { message: "You haven't set your adult count yet." })
     .max(12),
   guestChildren: z.number().optional(),
-  room: z
-    .string({
-      message: "Please select a room.",
-    })
-    .refine((value) => value !== "", {
-      message: "Please select a room.",
-    }),
   date: z
     .object(
       {
@@ -105,38 +98,41 @@ export default function BookingCalendar() {
   // ```
   // Disables the existing reservation dates
   // ```
-  // const isDisabledDate = async () => {
-  //   const roomReservations = reservations.filter(
-  //     (reservation) => reservation.room === roomSelected
-  //   );
+  const isDisabledDate = () => {
+    const dates = reservations.flatMap((reservation) => {
+      const { checkIn, checkOut } = reservation;
+      let currentDate = new Date(checkIn);
+      const disabledDatesArray = [];
 
-  //   const dates = roomReservations.flatMap((reservation) => {
-  //     const { checkIn, checkOut } = reservation;
-  //     let currentDate = new Date(checkIn);
-  //     const disabledDatesArray = [];
+      // Collect all dates between check-in and check-out
+      while (currentDate <= checkOut) {
+        const disabledDate = new Date(currentDate);
+        disabledDate.setHours(0, 0, 0, 0); // Set time to midnight
+        disabledDatesArray.push(disabledDate);
+        currentDate.setDate(currentDate.getDate() + 1); // Move to the next day
+      }
 
-  //     // Collect all dates between check-in and check-out
-  //     while (currentDate <= checkOut) {
-  //       disabledDatesArray.push(new Date(currentDate));
-  //       currentDate.setDate(currentDate.getDate() + 1); // Move to the next day
-  //     }
+      return disabledDatesArray;
+    });
 
-  //     return disabledDatesArray;
-  //   });
+    setDisabledDates(dates);
+  };
 
-  //   setDisabledDates(dates);
-  // };
+  useEffect(() => {
+    isDisabledDate();
+  }, []);
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 mb-5">
-        <div className="grid md:grid-cols-2 gap-y-10">
+        <div className="grid md:grid-cols-2 gap-y-10 px-3">
           <section className="space-y-3">
             <h3 className="text-xl font-medium text-gray-500">
               <span className="text-black font-semibold">Select</span> number of
               guests for your stay.
             </h3>
 
-            <div className="border border-gray-300 rounded-3xl space-y-8 px-3 py-8">
+            <div className="border border-gray-300 space-y-8 px-3 py-8">
               <FormField
                 control={form.control}
                 name="guestAdult"
@@ -230,8 +226,8 @@ export default function BookingCalendar() {
               <span className="text-black font-semibold">Plan</span> your
               check-in and check-out.
             </h3>
-            <div className="border border-gray-300 rounded-3xl space-y-8 px-3 pt-8 pb-2">
-              <h4 className="text-center font-light uppercase tracking-widest">
+            <div className="border border-gray-300 space-y-4 px-3 pt-8 pb-2">
+              <h4 className="text-sm text-center font-light uppercase tracking-widest">
                 Select you stay
               </h4>
               <FormField
@@ -239,7 +235,7 @@ export default function BookingCalendar() {
                 name="date"
                 render={({ field }) => (
                   <FormItem className="text-center">
-                    <FormLabel className="block text-sm font-light uppercase tracking-widest">
+                    <FormLabel className="block text-base font-light uppercase tracking-widest">
                       Check in - Check out
                     </FormLabel>
 
@@ -301,7 +297,6 @@ export default function BookingCalendar() {
                         formatters={{
                           formatWeekdayName,
                         }}
-                        required
                         excludeDisabled
                       />
                     </FormControl>
