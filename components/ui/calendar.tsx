@@ -33,20 +33,20 @@ function Calendar({
           "text-slate-800 w-12 font-light text-[0.8rem] dark:text-slate-400",
         week: "flex w-full",
         day: cn(
-          "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-accent [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected].day-range-end)]:rounded-r-md",
+          "relative hover:bg-gray-200 p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-accent [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected].day-range-end)]:rounded-r-md",
           props.mode === "range"
             ? "[&:has(>.day-range-end)]:rounded-r-md [&:has(>.day-range-start)]:rounded-l-md first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md"
             : "[&:has([aria-selected])]:rounded-md"
         ),
-        day_button: cn("h-12 w-12 p-0 font-normal "),
+        day_button: cn("h-12 w-12 p-0 font-normal"),
         range_start: "range_start",
         range_end: "range_end",
         selected:
           "bg-slate-900 text-slate-50 hover:bg-slate-300 hover:text-slate-900 focus:bg-slate-900 focus:text-slate-50 dark:bg-slate-50 dark:text-slate-900 dark:hover:bg-slate-900 dark:hover:text-slate-900 dark:focus:bg-slate-50 dark:focus:text-slate-900 duration-300",
-        today: "bg-slate-400 text-slate-900",
+        today: "bg-slate-300 text-yellow-700",
         outside:
           "day-outside rounded-2xl text-slate-500 opacity-50 aria-selected:bg-slate-100/50 aria-selected:text-slate-500 aria-selected:opacity-30 dark:text-slate-400 dark:aria-selected:bg-slate-800/50 dark:aria-selected:text-slate-400",
-        disabled: "text-slate-500 opacity-20",
+        disabled: "day-disabled text-slate-500 opacity-20",
         range_middle:
           "aria-selected:bg-slate-100 aria-selected:text-slate-900 dark:aria-selected:bg-slate-800 dark:aria-selected:text-slate-50",
         hidden: "invisible",
