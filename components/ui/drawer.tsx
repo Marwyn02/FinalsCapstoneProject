@@ -42,13 +42,17 @@ const DrawerContent = React.forwardRef<
     <DrawerOverlay />
     <DrawerPrimitive.Content
       ref={ref}
+      // className={cn(
+      //   "fixed inset-x-0 bottom-0 z-50 flex h-full mt-24 flex-col border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
+      //   className
+      // )}
       className={cn(
-        "fixed inset-x-0 bottom-0 z-50 flex h-full mt-24 flex-col border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
+        "fixed bottom-0 right-0 z-50 flex h-full md:h-[80%] w-full md:w-[50%] lg:w-[40%] xl:w-[35%] flex-col border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950",
+        "md:rounded-tl-lg md:rounded-bl-lg md:mt-24 md:mr-4", // Adds space and rounded corners
         className
       )}
       {...props}
     >
-      {/* <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-slate-100 dark:bg-slate-800" /> */}
       {children}
     </DrawerPrimitive.Content>
   </DrawerPortal>
