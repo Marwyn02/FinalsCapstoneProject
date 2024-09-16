@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import useStore from "@/app/store/store";
 import { format } from "date-fns";
+import { motion, AnimatePresence } from "framer-motion";
+import { useMediaQuery } from "react-responsive";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -23,7 +27,9 @@ import { reservations } from "@/app/lib/placeholder-data";
 
 const formSchema = z.object({
   guestAdult: z
-    .number()
+    .number({
+      message: "Guest is required!",
+    })
     .min(1, { message: "You haven't set your adult count yet." })
     .max(12),
   guestChildren: z.number().optional(),
@@ -44,10 +50,21 @@ const formSchema = z.object({
 });
 
 export default function BookingCalendar() {
+  const router = useRouter();
+  const {
+    setAdultNumberGuest,
+    setChildrenNumberGuest,
+    setCheckInDate,
+    setCheckOutDate,
+  } = useStore();
   const [adultCount, setAdultCount] = useState<number>(0);
   const [childCount, setChildCount] = useState<number>(0);
+  const [nightCount, setNightCount] = useState(0);
   const [disabledDates, setDisabledDates] = useState<Date[]>([]);
   const [submitDisable, setSubmitDisable] = useState<boolean>(false);
+  const [isDisabled, setIsDisabled] = useState(true);
+
+  const isDesktop = useMediaQuery({ minWidth: 1024 });
 
   const [date, setDate] = useState<DateRange | undefined>({
     from: undefined,
@@ -64,11 +81,17 @@ export default function BookingCalendar() {
   function onSubmit(data: z.infer<typeof formSchema>) {
     try {
       setSubmitDisable(true);
-      console.log("====================================");
-      console.log({
-        title: "You submitted the following values:",
-        description: data,
-      });
+      setAdultNumberGuest(data.guestAdult);
+      setChildrenNumberGuest(data.guestChildren ?? 0);
+
+      if (data.date.from) {
+        setCheckInDate(data.date.from.toISOString());
+      }
+      if (data.date.to) {
+        setCheckOutDate(data.date.to.toISOString());
+      }
+
+      router.push("/booking");
     } catch (error) {
       console.error("Reservation submission failed: ", error);
     }
@@ -118,33 +141,68 @@ export default function BookingCalendar() {
     setDisabledDates(dates);
   };
 
+  // ```
+  // Side effect the disable dates
+  // ```
   useEffect(() => {
     isDisabledDate();
   }, []);
 
+  useEffect(() => {
+    if (date) {
+      if (date.from)
+        if (date.from && date.to) {
+          const from = new Date(date.from);
+          const to = new Date(date.to);
+
+          if (from && to) {
+            const differenceMs = to.getTime() - from.getTime();
+            const daysDifference = Math.ceil(
+              differenceMs / (1000 * 60 * 60 * 24)
+            );
+            setNightCount(daysDifference);
+          }
+        }
+    } else {
+      setNightCount(0);
+    }
+  }, [date, nightCount]);
+
+  // Check if the fields are filled to undisabled the button
+  useEffect(() => {
+    // Check if all fields are filled
+    if (date) {
+      if (date.from && date.to && adultCount > 0) {
+        setIsDisabled(false); // Enable button
+      } else {
+        setIsDisabled(true); // Disable button
+      }
+    }
+  }, [date, adultCount]);
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 mb-5">
-        <div className="grid md:grid-cols-2 gap-y-10 px-3">
-          <section className="space-y-3">
-            <h3 className="text-xl font-medium text-gray-500">
-              <span className="text-black font-semibold">Select</span> number of
-              guests for your stay.
-            </h3>
-
-            <div className="border border-gray-300 space-y-8 px-3 py-8">
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="mx-4 md:mx-28 space-y-5"
+      >
+        <div className="border-y grid grid-cols-1 lg:grid-cols-3 lg:items-center gap-y-5 md:gap-y-10 px-3 md:py-12">
+          <section className="space-y-3 lg:col-span-1 mt-5 md:mt-0">
+            <div className="space-y-8 md:px-3 py-8">
               <FormField
                 control={form.control}
                 name="guestAdult"
                 render={({ field }) => (
                   <FormItem className="text-center">
-                    <FormLabel className="font-light uppercase text-center tracking-widest">
-                      Adults
+                    <FormLabel className="font-light uppercase tracking-widest ">
+                      <p>Adults</p>
+                      <p className="text-xs capitalize text-gray-400 tracking-normal">
+                        Age 13+
+                      </p>
                     </FormLabel>
                     <FormControl>
                       <div className="flex justify-around items-center">
                         <CountButton
-                          className="h-12 w-12 p-2.5"
+                          className="h-10 w-10 p-2.5"
                           variant={"outline"}
                           size={"count"}
                           control="decrement"
@@ -155,12 +213,13 @@ export default function BookingCalendar() {
                           disabled={adultCount === 1}
                         />
 
-                        <p className="font-bold text-lg cursor-default">
+                        <p className="font-medium text-lg cursor-default">
                           {adultCount}
                         </p>
 
                         <CountButton
-                          className="h-12 w-12 p-2.5 active:bg-gray-700 duration-200"
+                          className="h-10 w-10 p-2.5 duration-200"
+                          variant={"outline"}
                           size={"count"}
                           control="increment"
                           onClick={() => {
@@ -181,13 +240,16 @@ export default function BookingCalendar() {
                 name="guestChildren"
                 render={({ field }) => (
                   <FormItem className="text-center">
-                    <FormLabel className="font-light uppercase tracking-widest">
-                      Children
+                    <FormLabel className="font-light uppercase tracking-widest ">
+                      <p>Children</p>
+                      <p className="text-xs capitalize text-gray-400 tracking-normal">
+                        Ages 2-12
+                      </p>
                     </FormLabel>
                     <FormControl>
                       <div className="flex justify-around items-center">
                         <CountButton
-                          className="h-12 w-12 p-2.5"
+                          className="h-10 w-10 p-2.5"
                           variant={"outline"}
                           size={"count"}
                           control="decrement"
@@ -198,12 +260,13 @@ export default function BookingCalendar() {
                           disabled={childCount === 0}
                         />
 
-                        <p className="font-bold text-lg cursor-default">
+                        <p className="font-medium text-lg cursor-default">
                           {childCount}
                         </p>
 
                         <CountButton
-                          className="h-12 w-12 p-2.5 active:bg-gray-700 duration-200"
+                          className="h-10 w-10 p-2.5 duration-200"
+                          variant={"outline"}
                           size={"count"}
                           control="increment"
                           onClick={() => {
@@ -219,14 +282,60 @@ export default function BookingCalendar() {
                 )}
               />
             </div>
+
+            <AnimatePresence>
+              {date && date.to && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ duration: 0.3 }}
+                  className="hidden md:block text-sm space-y-8 p-8 md:py-8 md:px-14"
+                >
+                  <div className="flex justify-between">
+                    <p>
+                      ₱4,000 x{" "}
+                      <span>
+                        {nightCount > 1
+                          ? `${nightCount} nights`
+                          : `${nightCount} night`}
+                      </span>
+                    </p>{" "}
+                    <p>
+                      ₱
+                      {(4000 * nightCount).toLocaleString("en-US", {
+                        maximumFractionDigits: 0,
+                      })}
+                    </p>
+                  </div>
+
+                  <div className="font-semibold flex justify-between border-t pt-6 pb-2">
+                    <p>Total</p>
+                    <p>
+                      ₱
+                      {(4000 * nightCount).toLocaleString("en-US", {
+                        maximumFractionDigits: 0,
+                      })}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="justify-center hidden md:flex">
+              <Button
+                className="rounded-md w-3/4 mx-auto"
+                variant={"outline"}
+                type="submit"
+                disabled={isDisabled || submitDisable}
+              >
+                Reserve
+              </Button>
+            </div>
           </section>
 
-          <section className="space-y-3">
-            <h3 className="text-xl font-medium text-gray-500">
-              <span className="text-black font-semibold">Plan</span> your
-              check-in and check-out.
-            </h3>
-            <div className="border border-gray-300 space-y-4 px-3 pt-8 pb-2">
+          <section className="space-y-3 lg:col-span-2 pb-10 md:pb-0">
+            <div className="space-y-4 md:px-3 pt-5 md:pt-0 md:pb-0 pb-2">
               <h4 className="text-sm text-center font-light uppercase tracking-widest">
                 Select you stay
               </h4>
@@ -235,23 +344,27 @@ export default function BookingCalendar() {
                 name="date"
                 render={({ field }) => (
                   <FormItem className="text-center">
-                    <FormLabel className="block text-base font-light uppercase tracking-widest">
+                    <FormLabel className="block text-base font-light md:mb-10 uppercase tracking-widest">
                       Check in - Check out
                     </FormLabel>
 
                     <FormControl>
                       <Calendar
                         mode="range"
+                        numberOfMonths={isDesktop ? 2 : 1}
                         selected={{
                           from: field.value?.from ?? undefined,
                           to: field.value?.to ?? undefined,
                         }}
                         onSelect={(value) => {
                           if (value?.from && value?.to) {
-                            // If the same day is clicked again, clear the selection (deselect)
                             if (value.from.getTime() === value.to.getTime()) {
-                              field.onChange(undefined);
-                              setDate(undefined);
+                              // Set `to` as undefined to clear the range
+                              field.onChange({
+                                from: value.from,
+                                to: undefined,
+                              });
+                              setDate({ from: value.from, to: undefined });
                             } else {
                               // If from and to are valid, proceed as usual
                               field.onChange({
@@ -260,10 +373,20 @@ export default function BookingCalendar() {
                               });
                               setDate(value);
                             }
+                          } else if (value?.from && !value?.to) {
+                            // Handle regular selection (only `from` is selected)
+                            field.onChange({
+                              from: value.from,
+                              to: undefined, // Keep `to` undefined for a single date selection
+                            });
+                            setDate({
+                              from: value.from,
+                              to: undefined,
+                            });
                           } else {
-                            // Handle regular selection
-                            field.onChange(value);
-                            setDate(value);
+                            // Clear selection if no date is selected
+                            field.onChange(undefined);
+                            setDate(undefined);
                           }
                         }}
                         max={14}
@@ -303,11 +426,11 @@ export default function BookingCalendar() {
 
                     {date?.from &&
                       (date.to ? (
-                        <p className="text-sm font-light uppercase tracking-wide pb-5">
+                        <p className="text-sm font-light uppercase tracking-wide pb-5 md:pb-0">
                           {format(date.from, "PPP")} - {format(date.to, "PPP")}
                         </p>
                       ) : (
-                        <p className="text-sm font-light uppercase tracking-wide pb-5">
+                        <p className="text-sm font-light uppercase tracking-wide pb-5 md:pb-0">
                           {format(date.from, "PPP")}
                         </p>
                       ))}
@@ -317,11 +440,57 @@ export default function BookingCalendar() {
                 )}
               />
             </div>
-          </section>
 
-          <Button type="submit" disabled={submitDisable}>
-            Continue
-          </Button>
+            <AnimatePresence>
+              {date && date.to && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ duration: 0.3 }}
+                  className="block md:hidden text-sm space-y-8 p-8"
+                >
+                  <div className="flex justify-between">
+                    <p>
+                      ₱4,000 x{" "}
+                      <span>
+                        {nightCount > 1
+                          ? `${nightCount} nights`
+                          : `${nightCount} night`}
+                      </span>
+                    </p>{" "}
+                    <p>
+                      ₱
+                      {(4000 * nightCount).toLocaleString("en-US", {
+                        maximumFractionDigits: 0,
+                      })}
+                    </p>
+                  </div>
+
+                  <div className="font-semibold flex justify-between border-t pt-6 pb-2">
+                    <p>Total</p>
+                    <p>
+                      ₱
+                      {(4000 * nightCount).toLocaleString("en-US", {
+                        maximumFractionDigits: 0,
+                      })}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="justify-center flex md:hidden">
+              <Button
+                className="rounded-md w-full mx-auto"
+                variant={"outline"}
+                type="submit"
+                disabled={isDisabled || submitDisable}
+              >
+                Reserve
+              </Button>
+            </div>
+          </section>
         </div>
       </form>
     </Form>
