@@ -1,6 +1,7 @@
+/* eslint-disable react-hooks/rules-of-hooks */
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import useStore from "@/app/store/store";
 import { format } from "date-fns";
@@ -60,6 +61,7 @@ export default function BookingCalendar() {
   const [adultCount, setAdultCount] = useState<number>(0);
   const [childCount, setChildCount] = useState<number>(0);
   const [nightCount, setNightCount] = useState(0);
+  const [bookingPrice, setBookingPrice] = useState(0);
   const [disabledDates, setDisabledDates] = useState<Date[]>([]);
   const [submitDisable, setSubmitDisable] = useState<boolean>(false);
   const [isDisabled, setIsDisabled] = useState(true);
@@ -98,13 +100,6 @@ export default function BookingCalendar() {
   }
 
   // ```
-  // Set the week days name to three letters than two letters default
-  // ```
-  const formatWeekdayName = (date: Date) => {
-    return format(date, "EEE"); // Shortened weekday name
-  };
-
-  // ```
   // Handles adult count by adding and subtracting the number of adult guest count
   // ```
   const adultCountHandler = (count: number) => {
@@ -139,6 +134,104 @@ export default function BookingCalendar() {
     });
 
     setDisabledDates(dates);
+  };
+
+  // ```
+  // Assign a different price for some dates
+  // ```
+  const specificDatePrices: { [key: string]: number } = {
+    "2024-09-23": 10500,
+    "2024-10-15": 5000,
+  };
+
+  // ```
+  // Setting prices for the dates
+  // ```
+  const getStaticPriceForDate = (date: Date) => {
+    const dateString = date.toISOString().split("T")[0];
+
+    // Check if the date has a specific price
+    if (specificDatePrices[dateString]) {
+      return specificDatePrices[dateString];
+    }
+
+    let dayOfWeek = date.getDay();
+
+    if (dayOfWeek === 6 || dayOfWeek === 5) {
+      return 4000; // Fixed price for weekends
+    }
+
+    // Weekday Pricing (Monday to Friday)
+    return 3000; // Fixed price for weekdays
+  };
+  // ```
+  // Set prices for the month
+  // ```
+  const getPricesForMonth = () => {
+    const prices: { [key: string]: number } = {};
+    const currentDate = new Date();
+    currentDate.setDate(0);
+
+    const endDate = new Date(currentDate);
+    endDate.setMonth(endDate.getMonth() + 3);
+    endDate.setDate(1);
+
+    while (currentDate <= endDate) {
+      const dateString = currentDate.toISOString().split("T")[0];
+      prices[dateString] = getStaticPriceForDate(currentDate);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    return prices;
+  };
+
+  const prices = getPricesForMonth();
+
+  // ```
+  //   Formatter for the days in calendar
+  //   ```
+  const formatDay: any = (date: Date) => {
+    const dateString = date.toISOString().split("T")[0];
+    const startDate = new Date("2024-08-31");
+
+    if (date < startDate) {
+      return (
+        <div className="day-cell">
+          <span>{date.getDate()}</span>
+          <div className="price text-[10px] text-gray-400">Not available</div>
+        </div>
+      );
+    }
+    const price = prices[dateString]
+      ? `₱${prices[dateString].toLocaleString("en-US")}`
+      : "";
+
+    return (
+      <div className="day-cell">
+        <span>{date.getDate()}</span>
+        {price && (
+          <div className="price text-[10px] text-gray-400">{price}</div>
+        )}
+      </div>
+    );
+  };
+
+  // ```
+  // Calculating the prices of the date selected by the user
+  // ```
+  const calculateTotalPrice = (from: Date, to: Date) => {
+    let totalPrice = 0;
+    let currentDate = new Date(from);
+
+    // Iterate over the date range and calculate total price
+    while (currentDate < to) {
+      const dateString = currentDate.toISOString().split("T")[0];
+      if (prices[dateString]) {
+        totalPrice += prices[dateString];
+      }
+      currentDate.setDate(currentDate.getDate() + 1); // Move to the next day
+    }
+
+    return totalPrice;
   };
 
   // ```
@@ -210,7 +303,7 @@ export default function BookingCalendar() {
                             adultCountHandler(-1);
                             field.onChange(adultCount - 1);
                           }}
-                          disabled={adultCount === 1}
+                          disabled={adultCount <= 1}
                         />
 
                         <p className="font-medium text-lg cursor-default">
@@ -294,16 +387,20 @@ export default function BookingCalendar() {
                 >
                   <div className="flex justify-between">
                     <p>
-                      ₱4,000 x{" "}
+                      ₱
+                      {(bookingPrice / nightCount).toLocaleString("en-US", {
+                        maximumFractionDigits: 0,
+                      })}{" "}
+                      x{" "}
                       <span>
                         {nightCount > 1
                           ? `${nightCount} nights`
                           : `${nightCount} night`}
                       </span>
-                    </p>{" "}
+                    </p>
                     <p>
                       ₱
-                      {(4000 * nightCount).toLocaleString("en-US", {
+                      {bookingPrice.toLocaleString("en-US", {
                         maximumFractionDigits: 0,
                       })}
                     </p>
@@ -313,7 +410,7 @@ export default function BookingCalendar() {
                     <p>Total</p>
                     <p>
                       ₱
-                      {(4000 * nightCount).toLocaleString("en-US", {
+                      {bookingPrice.toLocaleString("en-US", {
                         maximumFractionDigits: 0,
                       })}
                     </p>
@@ -367,10 +464,16 @@ export default function BookingCalendar() {
                               setDate({ from: value.from, to: undefined });
                             } else {
                               // If from and to are valid, proceed as usual
+                              const totalPrice = calculateTotalPrice(
+                                value.from,
+                                value.to
+                              );
                               field.onChange({
                                 from: value.from,
                                 to: value.to,
                               });
+
+                              setBookingPrice(totalPrice);
                               setDate(value);
                             }
                           } else if (value?.from && !value?.to) {
@@ -399,6 +502,14 @@ export default function BookingCalendar() {
                             return true;
                           }
 
+                          const endDate = new Date(today);
+                          endDate.setMonth(endDate.getMonth() + 3);
+                          endDate.setDate(0);
+
+                          if (date > endDate) {
+                            return true;
+                          }
+
                           const isSameDay = (date1: any, date2: any) => {
                             return (
                               date1.getFullYear() === date2.getFullYear() &&
@@ -418,7 +529,11 @@ export default function BookingCalendar() {
                           return false;
                         }}
                         formatters={{
-                          formatWeekdayName,
+                          formatWeekdayName: (day: Date) =>
+                            day.toLocaleDateString("en-US", {
+                              weekday: "short",
+                            }),
+                          formatDay,
                         }}
                         excludeDisabled
                       />
@@ -452,16 +567,20 @@ export default function BookingCalendar() {
                 >
                   <div className="flex justify-between">
                     <p>
-                      ₱4,000 x{" "}
+                      ₱
+                      {(bookingPrice / nightCount).toLocaleString("en-US", {
+                        maximumFractionDigits: 0,
+                      })}{" "}
+                      x{" "}
                       <span>
                         {nightCount > 1
                           ? `${nightCount} nights`
                           : `${nightCount} night`}
                       </span>
-                    </p>{" "}
+                    </p>
                     <p>
                       ₱
-                      {(4000 * nightCount).toLocaleString("en-US", {
+                      {bookingPrice.toLocaleString("en-US", {
                         maximumFractionDigits: 0,
                       })}
                     </p>
