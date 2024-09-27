@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import useStore from "@/app/store/store";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import { useMediaQuery } from "react-responsive";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -60,13 +59,12 @@ export default function BookingCalendar() {
   } = useStore();
   const [adultCount, setAdultCount] = useState<number>(0);
   const [childCount, setChildCount] = useState<number>(0);
-  const [nightCount, setNightCount] = useState(0);
-  const [bookingPrice, setBookingPrice] = useState(0);
+  const [nightCount, setNightCount] = useState<number>(0);
+  const [bookingPrice, setBookingPrice] = useState<number>(0);
   const [disabledDates, setDisabledDates] = useState<Date[]>([]);
+  const [selectedLastDay, setSelectedLastDay] = useState<Date | null>(null);
   const [submitDisable, setSubmitDisable] = useState<boolean>(false);
-  const [isDisabled, setIsDisabled] = useState(true);
-
-  const isDesktop = useMediaQuery({ minWidth: 1024 });
+  const [isDisabled, setIsDisabled] = useState<boolean>(true);
 
   const [date, setDate] = useState<DateRange | undefined>({
     from: undefined,
@@ -111,29 +109,6 @@ export default function BookingCalendar() {
   // ```
   const childCountHandler = (count: number) => {
     setChildCount(Math.max(0, Math.min(12, childCount + count)));
-  };
-
-  // ```
-  // Disables the existing reservation dates
-  // ```
-  const isDisabledDate = () => {
-    const dates = reservations.flatMap((reservation) => {
-      const { checkIn, checkOut } = reservation;
-      let currentDate = new Date(checkIn);
-      const disabledDatesArray = [];
-
-      // Collect all dates between check-in and check-out
-      while (currentDate <= checkOut) {
-        const disabledDate = new Date(currentDate);
-        disabledDate.setHours(0, 0, 0, 0); // Set time to midnight
-        disabledDatesArray.push(disabledDate);
-        currentDate.setDate(currentDate.getDate() + 1); // Move to the next day
-      }
-
-      return disabledDatesArray;
-    });
-
-    setDisabledDates(dates);
   };
 
   // ```
@@ -201,9 +176,14 @@ export default function BookingCalendar() {
         </div>
       );
     }
-    const price = prices[dateString]
-      ? `₱${prices[dateString].toLocaleString("en-US")}`
-      : "";
+
+    const isLastSelectedDate =
+      date.getTime() === (selectedLastDay?.getTime() ?? null);
+
+    const price =
+      !isLastSelectedDate && prices[dateString]
+        ? `₱${prices[dateString].toLocaleString("en-US")}`
+        : ""; // Display blank for the last selected date
 
     return (
       <div className="day-cell">
@@ -238,7 +218,16 @@ export default function BookingCalendar() {
   // Side effect the disable dates
   // ```
   useEffect(() => {
-    isDisabledDate();
+    const disabledDatesArray = reservations.flatMap(({ checkIn, checkOut }) => {
+      const dates = [];
+      let currentDate = new Date(checkIn);
+      while (currentDate <= checkOut) {
+        dates.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      return dates;
+    });
+    setDisabledDates(disabledDatesArray);
   }, []);
 
   useEffect(() => {
@@ -287,10 +276,12 @@ export default function BookingCalendar() {
                 render={({ field }) => (
                   <FormItem className="text-center">
                     <FormLabel className="font-light uppercase tracking-widest ">
-                      <p>Adults</p>
-                      <p className="text-xs capitalize text-gray-400 tracking-normal">
-                        Age 13+
-                      </p>
+                      <>
+                        <p>Adults</p>
+                        <p className="text-xs capitalize text-gray-400 tracking-normal">
+                          Age 13+
+                        </p>
+                      </>
                     </FormLabel>
                     <FormControl>
                       <div className="flex justify-around items-center">
@@ -334,10 +325,12 @@ export default function BookingCalendar() {
                 render={({ field }) => (
                   <FormItem className="text-center">
                     <FormLabel className="font-light uppercase tracking-widest ">
-                      <p>Children</p>
-                      <p className="text-xs capitalize text-gray-400 tracking-normal">
-                        Ages 2-12
-                      </p>
+                      <>
+                        <p>Children</p>
+                        <p className="text-xs capitalize text-gray-400 tracking-normal">
+                          Ages 2-12
+                        </p>
+                      </>
                     </FormLabel>
                     <FormControl>
                       <div className="flex justify-around items-center">
@@ -448,7 +441,7 @@ export default function BookingCalendar() {
                     <FormControl>
                       <Calendar
                         mode="range"
-                        numberOfMonths={isDesktop ? 2 : 1}
+                        numberOfMonths={2}
                         selected={{
                           from: field.value?.from ?? undefined,
                           to: field.value?.to ?? undefined,
@@ -462,6 +455,7 @@ export default function BookingCalendar() {
                                 to: undefined,
                               });
                               setDate({ from: value.from, to: undefined });
+                              setSelectedLastDay(null);
                             } else {
                               // If from and to are valid, proceed as usual
                               const totalPrice = calculateTotalPrice(
@@ -475,6 +469,7 @@ export default function BookingCalendar() {
 
                               setBookingPrice(totalPrice);
                               setDate(value);
+                              setSelectedLastDay(value.to);
                             }
                           } else if (value?.from && !value?.to) {
                             // Handle regular selection (only `from` is selected)
@@ -486,10 +481,12 @@ export default function BookingCalendar() {
                               from: value.from,
                               to: undefined,
                             });
+                            setSelectedLastDay(null);
                           } else {
                             // Clear selection if no date is selected
                             field.onChange(undefined);
                             setDate(undefined);
+                            setSelectedLastDay(null);
                           }
                         }}
                         max={14}
