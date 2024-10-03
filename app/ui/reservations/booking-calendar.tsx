@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/form";
 
 import { reservations } from "@/app/lib/placeholder-data";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const formSchema = z.object({
   guestAdult: z
@@ -33,6 +35,7 @@ const formSchema = z.object({
     .min(1, { message: "You haven't set your adult count yet." })
     .max(12),
   guestChildren: z.number().optional(),
+  guestPWD: z.number().optional(),
   date: z
     .object(
       {
@@ -59,6 +62,7 @@ export default function BookingCalendar() {
   } = useStore();
   const [adultCount, setAdultCount] = useState<number>(0);
   const [childCount, setChildCount] = useState<number>(0);
+  const [pwdCount, setPwdCount] = useState<number>(0);
   const [nightCount, setNightCount] = useState<number>(0);
   const [bookingPrice, setBookingPrice] = useState<number>(0);
   const [disabledDates, setDisabledDates] = useState<Date[]>([]);
@@ -75,6 +79,7 @@ export default function BookingCalendar() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       guestChildren: 0,
+      guestPWD: 0,
     },
   });
 
@@ -91,7 +96,7 @@ export default function BookingCalendar() {
         setCheckOutDate(data.date.to.toISOString());
       }
 
-      router.push("/booking");
+      router.push("/reservations/confirm");
     } catch (error) {
       console.error("Reservation submission failed: ", error);
     }
@@ -109,6 +114,13 @@ export default function BookingCalendar() {
   // ```
   const childCountHandler = (count: number) => {
     setChildCount(Math.max(0, Math.min(12, childCount + count)));
+  };
+
+  // ```
+  // Handles pwds count by adding and subtracting the number of pwds guest count
+  // ```
+  const pwdCountHandler = (count: number) => {
+    setPwdCount(Math.max(0, Math.min(5, pwdCount + count)));
   };
 
   // ```
@@ -267,8 +279,8 @@ export default function BookingCalendar() {
         onSubmit={form.handleSubmit(onSubmit)}
         className="mx-4 md:mx-28 space-y-5"
       >
-        <div className="border-y grid grid-cols-1 lg:grid-cols-3 lg:items-center gap-y-5 md:gap-y-10 px-3 md:py-12">
-          <section className="space-y-3 lg:col-span-1 mt-5 md:mt-0">
+        <div className="grid grid-cols-1 lg:grid-cols-3 lg:items-center gap-y-5 md:gap-y-10 px-3 md:py-12">
+          <section className="space-y-1 lg:col-span-1 mt-5 md:mt-0">
             <div className="space-y-8 md:px-3 py-8">
               <FormField
                 control={form.control}
@@ -279,7 +291,7 @@ export default function BookingCalendar() {
                       <>
                         <p>Adults</p>
                         <p className="text-xs capitalize text-gray-400 tracking-normal">
-                          Age 13+
+                          Age 18+
                         </p>
                       </>
                     </FormLabel>
@@ -328,7 +340,7 @@ export default function BookingCalendar() {
                       <>
                         <p>Children</p>
                         <p className="text-xs capitalize text-gray-400 tracking-normal">
-                          Ages 2-12
+                          Ages 2-17
                         </p>
                       </>
                     </FormLabel>
@@ -367,6 +379,55 @@ export default function BookingCalendar() {
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={form.control}
+                name="guestPWD"
+                render={({ field }) => (
+                  <FormItem className="text-center">
+                    <FormLabel className="font-light uppercase tracking-widest ">
+                      <>
+                        <p>PWDs</p>
+                        <p className="text-xs capitalize text-gray-400 tracking-normal">
+                          Persons with disabilities
+                        </p>
+                      </>
+                    </FormLabel>
+                    <FormControl>
+                      <div className="flex justify-around items-center">
+                        <CountButton
+                          className="h-10 w-10 p-2.5"
+                          variant={"outline"}
+                          size={"count"}
+                          control="decrement"
+                          onClick={() => {
+                            pwdCountHandler(-1);
+                            field.onChange(pwdCount - 1);
+                          }}
+                          disabled={pwdCount === 0}
+                        />
+
+                        <p className="font-medium text-lg cursor-default">
+                          {pwdCount}
+                        </p>
+
+                        <CountButton
+                          className="h-10 w-10 p-2.5 duration-200"
+                          variant={"outline"}
+                          size={"count"}
+                          control="increment"
+                          onClick={() => {
+                            pwdCountHandler(1);
+                            field.onChange(pwdCount + 1);
+                          }}
+                          disabled={pwdCount === 12}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             <AnimatePresence>
@@ -376,28 +437,41 @@ export default function BookingCalendar() {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ duration: 0.3 }}
-                  className="hidden md:block text-sm space-y-8 p-8 md:py-8 md:px-14"
+                  className="hidden md:block text-sm space-y-8 p-8 md:pb-8 md:px-14"
                 >
-                  <div className="flex justify-between">
-                    <p>
-                      ₱
-                      {(bookingPrice / nightCount).toLocaleString("en-US", {
-                        maximumFractionDigits: 0,
-                      })}{" "}
-                      x{" "}
-                      <span>
-                        {nightCount > 1
-                          ? `${nightCount} nights`
-                          : `${nightCount} night`}
-                      </span>
-                    </p>
-                    <p>
-                      ₱
-                      {bookingPrice.toLocaleString("en-US", {
-                        maximumFractionDigits: 0,
-                      })}
-                    </p>
-                  </div>
+                  <section className="space-y-8">
+                    <div className="flex justify-between">
+                      <p>
+                        ₱
+                        {(bookingPrice / nightCount).toLocaleString("en-US", {
+                          maximumFractionDigits: 0,
+                        })}{" "}
+                        x{" "}
+                        <span>
+                          {nightCount > 1
+                            ? `${nightCount} nights`
+                            : `${nightCount} night`}
+                        </span>
+                      </p>
+                      <p>
+                        ₱
+                        {bookingPrice.toLocaleString("en-US", {
+                          maximumFractionDigits: 0,
+                        })}
+                      </p>
+                    </div>
+
+                    {nightCount > 1 && (
+                      <div>
+                        <Label>Voucher</Label>
+                        <Input
+                          type="text"
+                          placeholder="Enter your voucher code"
+                          className="bg-gray-50"
+                        />
+                      </div>
+                    )}
+                  </section>
 
                   <div className="font-semibold flex justify-between border-t pt-6 pb-2">
                     <p>Total</p>
@@ -419,7 +493,7 @@ export default function BookingCalendar() {
                 type="submit"
                 disabled={isDisabled || submitDisable}
               >
-                Reserve
+                Continue
               </Button>
             </div>
           </section>
@@ -553,6 +627,7 @@ export default function BookingCalendar() {
               />
             </div>
 
+            {/* Mobile total displays */}
             <AnimatePresence>
               {date && date.to && (
                 <motion.div
