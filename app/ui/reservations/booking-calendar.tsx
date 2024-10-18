@@ -26,6 +26,8 @@ import {
 import { reservations } from "@/app/lib/placeholder-data";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ParallaxBanner, ParallaxProvider } from "react-scroll-parallax";
+import { getAllReservation } from "@/app/api/reservation/route";
 
 const formSchema = z.object({
   guestAdult: z
@@ -59,6 +61,7 @@ export default function BookingCalendar() {
     setChildrenNumberGuest,
     setCheckInDate,
     setCheckOutDate,
+    setBookingTotalPrice,
   } = useStore();
   const [adultCount, setAdultCount] = useState<number>(0);
   const [childCount, setChildCount] = useState<number>(0);
@@ -88,6 +91,7 @@ export default function BookingCalendar() {
       setSubmitDisable(true);
       setAdultNumberGuest(data.guestAdult);
       setChildrenNumberGuest(data.guestChildren ?? 0);
+      setBookingTotalPrice(bookingPrice);
 
       if (data.date.from) {
         setCheckInDate(data.date.from.toISOString());
@@ -230,16 +234,32 @@ export default function BookingCalendar() {
   // Side effect the disable dates
   // ```
   useEffect(() => {
-    const disabledDatesArray = reservations.flatMap(({ checkIn, checkOut }) => {
-      const dates = [];
-      let currentDate = new Date(checkIn);
-      while (currentDate <= checkOut) {
-        dates.push(new Date(currentDate));
-        currentDate.setDate(currentDate.getDate() + 1);
+    const fetchReservations = async () => {
+      try {
+        const reservation = await getAllReservation();
+
+        const disabledDatesArray = reservation.flatMap(
+          ({ checkIn, checkOut }) => {
+            const dates = [];
+            let currentDate = new Date(checkIn);
+
+            // Get the dates from and between and last on the checking
+            while (currentDate <= checkOut) {
+              dates.push(new Date(currentDate));
+              currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            return dates;
+          }
+        );
+
+        setDisabledDates(disabledDatesArray);
+      } catch (error) {
+        console.error("Error fetching reservations: ", error);
       }
-      return dates;
-    });
-    setDisabledDates(disabledDatesArray);
+    };
+
+    fetchReservations();
   }, []);
 
   useEffect(() => {
@@ -275,13 +295,20 @@ export default function BookingCalendar() {
   }, [date, adultCount]);
   return (
     <Form {...form}>
+      <ParallaxProvider>
+        <ParallaxBanner
+          layers={[{ image: "/image/room-2-1.jpg", speed: -15 }]}
+          className="w-full h-[300px] object-cover brightness-75 contrast-125"
+        />
+      </ParallaxProvider>
+
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="mx-4 md:mx-28 space-y-5"
+        className="mx-4 md:mx-28 space-y-5 py-8"
       >
-        <div className="grid grid-cols-1 lg:grid-cols-3 lg:items-center gap-y-5 md:gap-y-10 px-3 md:py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 lg:items-start gap-y-5 md:gap-y-10 px-3 md:py-12">
           <section className="space-y-1 lg:col-span-1 mt-5 md:mt-0">
-            <div className="space-y-8 md:px-3 py-8">
+            <div className="space-y-8 md:px-3 pb-10">
               <FormField
                 control={form.control}
                 name="guestAdult"
@@ -430,6 +457,7 @@ export default function BookingCalendar() {
               />
             </div>
 
+            {/* Computation prices in desktop */}
             <AnimatePresence>
               {date && date.to && (
                 <motion.div
@@ -437,9 +465,9 @@ export default function BookingCalendar() {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ duration: 0.3 }}
-                  className="hidden md:block text-sm space-y-8 p-8 md:pb-8 md:px-14"
+                  className="hidden md:block text-sm space-y-5 p-8 md:pb-1 md:px-14"
                 >
-                  <section className="space-y-8">
+                  <section className="space-y-5">
                     <div className="flex justify-between">
                       <p>
                         ₱
@@ -473,9 +501,9 @@ export default function BookingCalendar() {
                     )}
                   </section>
 
-                  <div className="font-semibold flex justify-between border-t pt-6 pb-2">
+                  <div className="font-semibold flex justify-between items-start border-t border-gray-400 py-5">
                     <p>Total</p>
-                    <p>
+                    <p className="text-xl font-semibold">
                       ₱
                       {bookingPrice.toLocaleString("en-US", {
                         maximumFractionDigits: 0,
@@ -499,9 +527,10 @@ export default function BookingCalendar() {
           </section>
 
           <section className="space-y-3 lg:col-span-2 pb-10 md:pb-0">
+            {/* Calendar */}
             <div className="space-y-4 md:px-3 pt-5 md:pt-0 md:pb-0 pb-2">
-              <h4 className="text-sm text-center font-light uppercase tracking-widest">
-                Select you stay
+              <h4 className="text-2xl text-center font-teko uppercase tracking-widest">
+                Select your stay
               </h4>
               <FormField
                 control={form.control}
