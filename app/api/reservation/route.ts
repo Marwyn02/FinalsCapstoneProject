@@ -52,12 +52,21 @@ export async function createReservation(values: any) {
   }
 }
 
+// Get only one reservation that matches the id
+// This uses in the reservation-success
 export async function getReservation(id: string) {
   const reservation = await prisma.reservation.findFirst({
     where: {
       reservationId: id,
     },
   });
+
+  return reservation;
+}
+
+// Get all reservation for the disable dates especially
+export async function getAllReservation() {
+  const reservation = await prisma.reservation.findMany();
 
   return reservation;
 }
