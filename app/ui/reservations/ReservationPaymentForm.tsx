@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
+import useStore from "@/app/store/store";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 
@@ -25,8 +26,6 @@ import {
 } from "@/components/ui/select";
 
 import { Input } from "@/components/ui/input";
-import { useRouter } from "next/navigation";
-import useStore from "@/app/store/store";
 
 import { createReservation } from "@/app/api/reservation/route";
 
@@ -61,7 +60,7 @@ const formSchema = z.object({
   billingAddress: z.string(),
 });
 
-export function PaymentForm() {
+const ReservationPaymentForm = () => {
   const {
     checkInDate,
     checkOutDate,
@@ -76,11 +75,11 @@ export function PaymentForm() {
     setPhoneNumber,
     setModeOfPayment,
   } = useStore();
-  const [isSubmit, setIsSubmit] = useState(false);
+  const [isSubmit, setIsSubmit] = useState<boolean>(false);
 
-  const [payment, setPayment] = useState("Cash on Arrival");
-  const [isCOA, setIsCOA] = useState(true);
-  const [isOnlinePayment, setIsOnlinePayment] = useState(false);
+  const [payment, setPayment] = useState<string>("Cash on Arrival");
+  const [isCOA, setIsCOA] = useState<boolean>(true);
+  const [isOnlinePayment, setIsOnlinePayment] = useState<boolean>(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -123,15 +122,8 @@ export function PaymentForm() {
 
       if (values) {
         await createReservation(values);
-
         setIsSubmit(false);
       }
-
-      console.log("====================================");
-      console.log({
-        title: "You submitted the following values:",
-        description: data,
-      });
     } catch (error) {
       console.error(error);
       setIsSubmit(false);
@@ -139,7 +131,7 @@ export function PaymentForm() {
   }
 
   // Handles what payment option the user chooses
-  function paymentOptionHandler(type: string) {
+  const paymentOptionHandler = (type: string) => {
     if (type === "COA") {
       setIsCOA(true);
       setPayment("Cash on Arrival");
@@ -149,7 +141,7 @@ export function PaymentForm() {
       setPayment("Online Payment");
       setIsOnlinePayment(true);
     }
-  }
+  };
   return (
     <Form {...form}>
       <form
@@ -349,4 +341,6 @@ export function PaymentForm() {
       </form>
     </Form>
   );
-}
+};
+
+export default ReservationPaymentForm;
