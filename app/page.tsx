@@ -1,15 +1,20 @@
-"use client";
+import { ReviewFetchAll } from "./api/review/ReviewFetch";
 
-import HomePage from "./ui/home/home-page";
-import Footer from "./ui/navigations/footer";
-import MainNavigation from "./ui/navigations/main-navigation";
+import { MainNavigation, Footer } from "./ui/navigation/navigation";
+import HomeReview from "./ui/home/HomeReview";
+import HomeLanding from "./ui/home/HomeLanding";
+import HomeOverview from "./ui/home/HomeOverview";
 
-export default function Page() {
+export default async function Page() {
+  const reviews = await ReviewFetchAll();
+
   return (
-    <>
+    <main className="bg-white text-[#1e2447]">
       <MainNavigation />
-      <HomePage />
+      <HomeLanding />
+      <HomeOverview />
+      <HomeReview reviews={reviews} />
       <Footer />
-    </>
+    </main>
   );
 }
