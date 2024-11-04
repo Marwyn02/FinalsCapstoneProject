@@ -1,7 +1,8 @@
 "use client";
 
-import ContactPage from "@/app/ui/contact/contact-us";
 import { ParallaxProvider } from "react-scroll-parallax";
+
+import ContactPage from "@/app/ui/contact/ContactPage";
 
 export default function Page() {
   return (
