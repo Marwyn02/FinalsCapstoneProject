@@ -33,6 +33,7 @@ import {
   guestCountHandler,
   setPricesForMonth,
 } from "@/app/utils/ReservationHelpers";
+import { Reservation, SpecialPrice, Voucher } from "@/app/lib/types/types";
 
 const formSchema = z.object({
   guestAdult: z
@@ -59,11 +60,20 @@ const formSchema = z.object({
     }),
 });
 
-const ReservationCalendar = () => {
+const ReservationCalendar = ({
+  reservations,
+  specialPrices,
+  vouchers,
+}: {
+  reservations: Reservation[];
+  specialPrices: SpecialPrice[];
+  vouchers: Voucher[];
+}) => {
   const router = useRouter();
   const {
     setAdultNumberGuest,
     setChildrenNumberGuest,
+    setPwdNumberGuest,
     setCheckInDate,
     setCheckOutDate,
     setBookingTotalPrice,
@@ -73,6 +83,9 @@ const ReservationCalendar = () => {
   const [pwdCount, setPwdCount] = useState<number>(0);
   const [nightCount, setNightCount] = useState<number>(0);
   const [bookingPrice, setBookingPrice] = useState<number>(0);
+  const [voucherCode, setVoucherCode] = useState("");
+  const [discount, setDiscount] = useState(0);
+  const [voucherErrorCode, setVoucherErrorCode] = useState("");
   const [disabledDates, setDisabledDates] = useState<Date[]>([]);
   const [selectedLastDay, setSelectedLastDay] = useState<Date | null>(null);
   const [submitDisable, setSubmitDisable] = useState<boolean>(false);
@@ -96,6 +109,7 @@ const ReservationCalendar = () => {
       setSubmitDisable(true);
       setAdultNumberGuest(data.guestAdult);
       setChildrenNumberGuest(data.guestChildren ?? 0);
+      setPwdNumberGuest(data.guestPWD ?? 0);
       setBookingTotalPrice(bookingPrice);
 
       if (data.date.from) {
@@ -111,13 +125,23 @@ const ReservationCalendar = () => {
     }
   }
 
-  // Assign a different price for some dates
   const [specificDatePrices, setSpecificDatePrices] = useState<{
     [key: string]: number;
-  }>({
-    "2024-10-23": 10500,
-    "2024-10-15": 5000,
-  });
+  }>({});
+
+  useEffect(() => {
+    if (specialPrices) {
+      // Transform fetched data into the desired object format
+      const datePriceMap = specialPrices.reduce((acc, { date, price }) => {
+        const formattedDate = date.toISOString().split("T")[0]; // Convert Date to "YYYY-MM-DD"
+        acc[formattedDate] = price;
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Update specificDatePrices with the transformed data
+      setSpecificDatePrices(datePriceMap);
+    }
+  }, [specialPrices]);
 
   // Function to set the prices to the dates of every months
   const datePrices = useMemo(
@@ -149,10 +173,8 @@ const ReservationCalendar = () => {
 
     return (
       <div className="day-cell">
-        <span>{date.getDate()}</span>
-        {price && (
-          <div className="price text-[10px] text-gray-400">{price}</div>
-        )}
+        <span className=" font-medium">{date.getDate()}</span>
+        {price && <div className="price text-[12px]">{price}</div>}
       </div>
     );
   };
@@ -161,10 +183,9 @@ const ReservationCalendar = () => {
   useEffect(() => {
     const fetchReservations = async () => {
       try {
-        const reservation = await getAllReservation();
-
-        const disabledDatesArray = reservation.flatMap(
-          ({ checkIn, checkOut }) => {
+        const disabledDatesArray = reservations
+          .filter((reservation) => reservation.status !== "canceled")
+          .flatMap(({ checkIn, checkOut }) => {
             const dates = [];
             let currentDate = new Date(checkIn);
 
@@ -175,8 +196,7 @@ const ReservationCalendar = () => {
             }
 
             return dates;
-          }
-        );
+          });
 
         setDisabledDates(disabledDatesArray);
       } catch (error) {
@@ -186,6 +206,82 @@ const ReservationCalendar = () => {
 
     fetchReservations();
   }, []);
+
+  const isDateDisabled = (date: Date) => {
+    // Check for disabled dates
+    return disabledDates.some((disabledDate) => {
+      // Ignore time by comparing only the date part
+      return (
+        disabledDate.getFullYear() === date.getFullYear() &&
+        disabledDate.getMonth() === date.getMonth() &&
+        disabledDate.getDate() === date.getDate()
+      );
+    });
+  };
+
+  const checkRangeForConflicts = (from: Date, to: Date) => {
+    const daysInRange = [];
+    let currentDate = new Date(from);
+
+    while (currentDate <= to) {
+      daysInRange.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return daysInRange.some((date) => isDateDisabled(date));
+  };
+
+  // Function to set range based on button click
+  const handleRangeClick = (startDate: Date, daysToAdd: number) => {
+    const resultDate = new Date(startDate);
+    resultDate.setDate(resultDate.getDate() + daysToAdd);
+
+    // Check for conflicts before updating state
+    if (checkRangeForConflicts(startDate, resultDate)) {
+      alert(
+        "The selected date range includes reserved dates. Please choose another."
+      );
+    } else {
+      const totalPrice = calculateTotalDatePrice(
+        startDate,
+        resultDate,
+        datePrices
+      );
+
+      // field.onChange({ from: fromDate, to: resultDate });
+      setBookingPrice(totalPrice);
+      setSelectedLastDay(resultDate);
+      setDate({ from: date?.from, to: resultDate });
+      return resultDate;
+    }
+  };
+
+  const applyVoucher = () => {
+    // Check if the entered code matches any code in the vouchers array
+    const matchedVoucher = vouchers.find(
+      (voucher) => voucher.code === voucherCode
+    );
+
+    if (
+      matchedVoucher?.discountPercent &&
+      matchedVoucher.discountPercent !== 0
+    ) {
+      const discountPercent =
+        (bookingPrice * matchedVoucher.discountPercent) / 100;
+      setDiscount(discountPercent);
+      setBookingPrice(bookingPrice - discountPercent);
+      setVoucherErrorCode("");
+    } else if (
+      matchedVoucher?.discountAmount &&
+      matchedVoucher.discountAmount !== 0
+    ) {
+      setDiscount(matchedVoucher.discountAmount);
+      setBookingPrice(bookingPrice - matchedVoucher.discountAmount);
+      setVoucherErrorCode("");
+    } else {
+      setVoucherErrorCode("Invalid voucher code");
+    }
+  };
 
   useEffect(() => {
     if (date?.from && date?.to) {
@@ -212,262 +308,33 @@ const ReservationCalendar = () => {
       <ParallaxProvider>
         <ParallaxBanner
           layers={[{ image: "/image/room-2-1.jpg", speed: -15 }]}
-          className="w-full h-[300px] object-cover brightness-75 contrast-125"
+          className="hidden md:block w-full h-[300px] object-cover brightness-75 contrast-125"
         />
       </ParallaxProvider>
 
+      <section className="bg-stone-800 px-5 pt-24 pb-8 md:px-24 md:py-6 text-sm md:text-base font-medium text-white">
+        <ul className="list-disc">
+          <li>
+            {" "}
+            Please note that bookings on weekends and holidays may incur
+            additional fees.{" "}
+          </li>
+          <li>
+            Dates displayed in{" "}
+            <span className="font-bold text-base text-gray-400">GRAY</span> are
+            not available for booking. Please select an available date to
+            proceed with your reservation.
+          </li>
+        </ul>
+      </section>
+
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="mx-4 md:mx-28 space-y-5 py-8"
+        className="px-4 md:px-16 space-y-5 py-8"
       >
-        <div className="grid grid-cols-1 lg:grid-cols-3 lg:items-start gap-y-5 md:gap-y-10 px-3 md:py-12">
-          <section className="space-y-1 lg:col-span-1 mt-5 md:mt-0">
-            <div className="space-y-8 md:px-3 pb-10">
-              {/* Adult */}
-              <FormField
-                control={form.control}
-                name="guestAdult"
-                render={({ field }) => (
-                  <FormItem className="text-center">
-                    <FormLabel className="font-light uppercase tracking-widest ">
-                      <>
-                        <p>Adults</p>
-                        <p className="text-xs capitalize text-gray-400 tracking-normal">
-                          Age 18+
-                        </p>
-                      </>
-                    </FormLabel>
-                    <FormControl>
-                      <div className="flex justify-around items-center">
-                        <CountButton
-                          className="h-10 w-10 p-2.5"
-                          variant={"outline"}
-                          size={"count"}
-                          control="decrement"
-                          onClick={() => {
-                            guestCountHandler(
-                              adultCount,
-                              setAdultCount,
-                              -1,
-                              1,
-                              12
-                            );
-                            field.onChange(adultCount - 1);
-                          }}
-                          disabled={adultCount <= 1}
-                        />
-
-                        <p className="font-medium text-lg cursor-default">
-                          {adultCount}
-                        </p>
-
-                        <CountButton
-                          className="h-10 w-10 p-2.5 duration-200"
-                          variant={"outline"}
-                          size={"count"}
-                          control="increment"
-                          onClick={() => {
-                            guestCountHandler(
-                              adultCount,
-                              setAdultCount,
-                              1,
-                              1,
-                              12
-                            );
-                            field.onChange(adultCount + 1);
-                          }}
-                          disabled={adultCount >= 12}
-                        />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Children */}
-              <FormField
-                control={form.control}
-                name="guestChildren"
-                render={({ field }) => (
-                  <FormItem className="text-center">
-                    <FormLabel className="font-light uppercase tracking-widest ">
-                      <>
-                        <p>Children</p>
-                        <p className="text-xs capitalize text-gray-400 tracking-normal">
-                          Ages 2-17
-                        </p>
-                      </>
-                    </FormLabel>
-                    <FormControl>
-                      <div className="flex justify-around items-center">
-                        <CountButton
-                          className="h-10 w-10 p-2.5"
-                          variant={"outline"}
-                          size={"count"}
-                          control="decrement"
-                          onClick={() => {
-                            guestCountHandler(
-                              childrenCount,
-                              setChildrenCount,
-                              -1,
-                              0,
-                              12
-                            );
-                            field.onChange(childrenCount - 1);
-                          }}
-                          disabled={childrenCount <= 0}
-                        />
-
-                        <p className="font-medium text-lg cursor-default">
-                          {childrenCount}
-                        </p>
-
-                        <CountButton
-                          className="h-10 w-10 p-2.5 duration-200"
-                          variant={"outline"}
-                          size={"count"}
-                          control="increment"
-                          onClick={() => {
-                            guestCountHandler(
-                              childrenCount,
-                              setChildrenCount,
-                              1,
-                              0,
-                              12
-                            );
-                            field.onChange(childrenCount + 1);
-                          }}
-                          disabled={childrenCount >= 12}
-                        />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* PWD */}
-              <FormField
-                control={form.control}
-                name="guestPWD"
-                render={({ field }) => (
-                  <FormItem className="text-center">
-                    <FormLabel className="font-light uppercase tracking-widest ">
-                      <>
-                        <p>PWDs</p>
-                        <p className="text-xs capitalize text-gray-400 tracking-normal">
-                          Persons with disabilities
-                        </p>
-                      </>
-                    </FormLabel>
-                    <FormControl>
-                      <div className="flex justify-around items-center">
-                        <CountButton
-                          className="h-10 w-10 p-2.5"
-                          variant={"outline"}
-                          size={"count"}
-                          control="decrement"
-                          onClick={() => {
-                            guestCountHandler(pwdCount, setPwdCount, -1, 0, 5);
-                            field.onChange(pwdCount - 1);
-                          }}
-                          disabled={pwdCount <= 0}
-                        />
-
-                        <p className="font-medium text-lg cursor-default">
-                          {pwdCount}
-                        </p>
-
-                        <CountButton
-                          className="h-10 w-10 p-2.5 duration-200"
-                          variant={"outline"}
-                          size={"count"}
-                          control="increment"
-                          onClick={() => {
-                            guestCountHandler(pwdCount, setPwdCount, 1, 0, 5);
-                            field.onChange(pwdCount + 1);
-                          }}
-                          disabled={pwdCount >= 12}
-                        />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Computation prices in desktop */}
-            <AnimatePresence>
-              {date && date.to && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.3 }}
-                  className="hidden md:block text-sm space-y-5 p-8 md:pb-1 md:px-14"
-                >
-                  <section className="space-y-5">
-                    <div className="flex justify-between">
-                      <p>
-                        ₱
-                        {(bookingPrice / nightCount).toLocaleString("en-US", {
-                          maximumFractionDigits: 0,
-                        })}{" "}
-                        x{" "}
-                        <span>
-                          {nightCount > 1
-                            ? `${nightCount} nights`
-                            : `${nightCount} night`}
-                        </span>
-                      </p>
-                      <p>
-                        ₱
-                        {bookingPrice.toLocaleString("en-US", {
-                          maximumFractionDigits: 0,
-                        })}
-                      </p>
-                    </div>
-
-                    {nightCount > 1 && (
-                      <div>
-                        <Label>Voucher</Label>
-                        <Input
-                          type="text"
-                          placeholder="Enter your voucher code"
-                          className="bg-gray-50"
-                        />
-                      </div>
-                    )}
-                  </section>
-
-                  <div className="font-semibold flex justify-between items-start border-t border-gray-400 py-5">
-                    <p>Total</p>
-                    <p className="text-xl font-semibold">
-                      ₱
-                      {bookingPrice.toLocaleString("en-US", {
-                        maximumFractionDigits: 0,
-                      })}
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className="justify-center hidden md:flex">
-              <Button
-                className="rounded-md w-3/4 mx-auto"
-                variant={"outline"}
-                type="submit"
-                disabled={isDisabled || submitDisable}
-              >
-                Continue
-              </Button>
-            </div>
-          </section>
-
-          <section className="space-y-3 lg:col-span-2 pb-10 md:pb-0">
+        <div className="grid grid-cols-1 lg:grid-cols-3 lg:items-start gap-y-5 md:gap-y-10 px-3 md:px-0 md:py-12">
+          {/* Calendar */}
+          <section className="space-y-3 lg:col-span-2 pb-3 border-b border-gray-700 md:border-0 md:pb-0">
             {/* Calendar */}
             <div className="space-y-4 md:px-3 pt-5 md:pt-0 md:pb-0 pb-2">
               <h4 className="text-2xl text-center font-teko uppercase tracking-widest">
@@ -488,16 +355,26 @@ const ReservationCalendar = () => {
                         numberOfMonths={2}
                         selected={{
                           from: field.value?.from ?? undefined,
-                          to: field.value?.to ?? undefined,
+                          to: date?.to || field.value?.to || undefined,
                         }}
                         onSelect={(value) => {
                           if (value?.from && value?.to) {
-                            if (value.from.getTime() === value.to.getTime()) {
+                            if (checkRangeForConflicts(value.from, value.to)) {
+                              alert(
+                                "The selected range includes reserved dates. Please choose another."
+                              );
+                              field.onChange(undefined); // Reset the field to undefined
+                              setDate(undefined);
+                              setSelectedLastDay(null);
+                            } else if (
+                              value.from.getTime() === value.to.getTime()
+                            ) {
                               // Set `to` as undefined to clear the range
                               field.onChange({
                                 from: value.from,
                                 to: undefined,
                               });
+                              // setLocalDate({ from: value.from, to: undefined });
                               setDate({ from: value.from, to: undefined });
                               setSelectedLastDay(null);
                             } else {
@@ -507,6 +384,7 @@ const ReservationCalendar = () => {
                                 value.to,
                                 datePrices
                               );
+
                               field.onChange({
                                 from: value.from,
                                 to: value.to,
@@ -581,24 +459,232 @@ const ReservationCalendar = () => {
                       />
                     </FormControl>
 
-                    {date?.from &&
-                      (date.to ? (
-                        <p className="text-sm font-light uppercase tracking-wide pb-5 md:pb-0">
-                          {format(date.from, "PPP")} - {format(date.to, "PPP")}
-                        </p>
-                      ) : (
-                        <p className="text-sm font-light uppercase tracking-wide pb-5 md:pb-0">
-                          {format(date.from, "PPP")}
-                        </p>
-                      ))}
+                    <div className="grid grid-cols-1 md:grid-cols-2 md:flex md:justify-between items-center pt-2 md:pt-4">
+                      {date?.from &&
+                        (date.to ? (
+                          <p className="text-base md:text-sm text-center font-light uppercase tracking-wide pb-5 md:pb-0">
+                            {format(date.from, "PPP")} -{" "}
+                            {format(date.to, "PPP")}
+                          </p>
+                        ) : (
+                          <p className="text-base md:text-sm text-center font-light uppercase tracking-wide pb-5 md:pb-0">
+                            {format(date.from, "PPP")}
+                          </p>
+                        ))}
+
+                      {date && date.from && (
+                        <div className="flex gap-x-2 md:gap-x-1.5 justify-center md:justify-end">
+                          {[3, 5, 7].map((days) => (
+                            <button
+                              key={days}
+                              type="button"
+                              className="px-3 py-1 border border-gray-900 hover:bg-gray-900 hover:text-white duration-300 text-base md:text-sm rounded-full"
+                              onClick={() => {
+                                if (date?.from) {
+                                  const resultDate = handleRangeClick(
+                                    date.from,
+                                    days
+                                  );
+                                  field.onChange({
+                                    from: date.from,
+                                    to: resultDate,
+                                  });
+                                }
+                              }}
+                            >
+                              {days} Days
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
+          </section>
 
-            {/* Mobile total displays */}
+          {/* Adult Children PWD */}
+          <section className="space-y-1 lg:col-span-1 mt-5 md:mt-0">
+            <div className="space-y-8 md:px-3 pb-10">
+              {/* Adult */}
+              <FormField
+                control={form.control}
+                name="guestAdult"
+                render={({ field }) => (
+                  <FormItem className="text-center">
+                    <FormLabel className="font-light uppercase tracking-widest ">
+                      <>
+                        <p>Adults</p>
+                        <p className="text-xs capitalize text-gray-400 tracking-normal">
+                          Age 18+
+                        </p>
+                      </>
+                    </FormLabel>
+                    <FormControl>
+                      <div className="flex justify-between md:justify-around items-center px-10 md:px-0">
+                        <CountButton
+                          className="h-10 w-10 p-2.5"
+                          variant={"outline"}
+                          size={"count"}
+                          control="decrement"
+                          onClick={() => {
+                            guestCountHandler(
+                              adultCount,
+                              setAdultCount,
+                              -1,
+                              1,
+                              12
+                            );
+                            field.onChange(adultCount - 1);
+                          }}
+                          disabled={adultCount <= 1}
+                        />
+
+                        <p className="font-medium text-lg cursor-default">
+                          {adultCount}
+                        </p>
+
+                        <CountButton
+                          className="h-10 w-10 p-2.5 duration-200"
+                          variant={"outline"}
+                          size={"count"}
+                          control="increment"
+                          onClick={() => {
+                            guestCountHandler(
+                              adultCount,
+                              setAdultCount,
+                              1,
+                              1,
+                              12
+                            );
+                            field.onChange(adultCount + 1);
+                          }}
+                          disabled={adultCount >= 12}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Children */}
+              <FormField
+                control={form.control}
+                name="guestChildren"
+                render={({ field }) => (
+                  <FormItem className="text-center">
+                    <FormLabel className="font-light uppercase tracking-widest ">
+                      <>
+                        <p>Children</p>
+                        <p className="text-xs capitalize text-gray-400 tracking-normal">
+                          Ages 2-17
+                        </p>
+                      </>
+                    </FormLabel>
+                    <FormControl>
+                      <div className="flex justify-between md:justify-around items-center px-10 md:px-0">
+                        <CountButton
+                          className="h-10 w-10 p-2.5"
+                          variant={"outline"}
+                          size={"count"}
+                          control="decrement"
+                          onClick={() => {
+                            guestCountHandler(
+                              childrenCount,
+                              setChildrenCount,
+                              -1,
+                              0,
+                              12
+                            );
+                            field.onChange(childrenCount - 1);
+                          }}
+                          disabled={childrenCount <= 0}
+                        />
+
+                        <p className="font-medium text-lg cursor-default">
+                          {childrenCount}
+                        </p>
+
+                        <CountButton
+                          className="h-10 w-10 p-2.5 duration-200"
+                          variant={"outline"}
+                          size={"count"}
+                          control="increment"
+                          onClick={() => {
+                            guestCountHandler(
+                              childrenCount,
+                              setChildrenCount,
+                              1,
+                              0,
+                              12
+                            );
+                            field.onChange(childrenCount + 1);
+                          }}
+                          disabled={childrenCount >= 12}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* PWD */}
+              <FormField
+                control={form.control}
+                name="guestPWD"
+                render={({ field }) => (
+                  <FormItem className="text-center">
+                    <FormLabel className="font-light uppercase tracking-widest ">
+                      <>
+                        <p>PWDs</p>
+                        <p className="text-xs capitalize text-gray-400 tracking-normal">
+                          Persons with disabilities
+                        </p>
+                      </>
+                    </FormLabel>
+                    <FormControl>
+                      <div className="flex justify-between md:justify-around items-center px-10 md:px-0">
+                        <CountButton
+                          className="h-10 w-10 p-2.5"
+                          variant={"outline"}
+                          size={"count"}
+                          control="decrement"
+                          onClick={() => {
+                            guestCountHandler(pwdCount, setPwdCount, -1, 0, 5);
+                            field.onChange(pwdCount - 1);
+                          }}
+                          disabled={pwdCount <= 0}
+                        />
+
+                        <p className="font-medium text-lg cursor-default">
+                          {pwdCount}
+                        </p>
+
+                        <CountButton
+                          className="h-10 w-10 p-2.5 duration-200"
+                          variant={"outline"}
+                          size={"count"}
+                          control="increment"
+                          onClick={() => {
+                            guestCountHandler(pwdCount, setPwdCount, 1, 0, 5);
+                            field.onChange(pwdCount + 1);
+                          }}
+                          disabled={pwdCount >= 5}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Computation prices in desktop */}
             <AnimatePresence>
               {date && date.to && (
                 <motion.div
@@ -606,46 +692,88 @@ const ReservationCalendar = () => {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ duration: 0.3 }}
-                  className="block md:hidden text-sm space-y-8 p-8"
+                  className="text-base md:text-sm space-y-5 px-2 py-5 md:p-8 md:pb-1 md:px-14"
                 >
-                  <div className="flex justify-between">
-                    <p>
-                      ₱
-                      {(bookingPrice / nightCount).toLocaleString("en-US", {
-                        maximumFractionDigits: 0,
-                      })}{" "}
-                      x{" "}
-                      <span>
-                        {nightCount > 1
-                          ? `${nightCount} nights`
-                          : `${nightCount} night`}
-                      </span>
-                    </p>
-                    <p>
-                      ₱
-                      {bookingPrice.toLocaleString("en-US", {
-                        maximumFractionDigits: 0,
-                      })}
-                    </p>
-                  </div>
+                  <section className="space-y-5">
+                    <div className="flex justify-between">
+                      <p>
+                        ₱
+                        {(bookingPrice / nightCount).toLocaleString("en-US", {
+                          maximumFractionDigits: 0,
+                        })}{" "}
+                        x{" "}
+                        <span>
+                          {nightCount > 1
+                            ? `${nightCount} nights`
+                            : `${nightCount} night`}
+                        </span>
+                      </p>
+                      <p>
+                        ₱
+                        {bookingPrice.toLocaleString("en-US", {
+                          maximumFractionDigits: 0,
+                        })}
+                      </p>
+                    </div>
 
-                  <div className="font-semibold flex justify-between border-t pt-6 pb-2">
-                    <p>Total</p>
-                    <p>
-                      ₱
-                      {(4000 * nightCount).toLocaleString("en-US", {
-                        maximumFractionDigits: 0,
-                      })}
-                    </p>
-                  </div>
+                    {nightCount > 1 && (
+                      <div>
+                        <Label>Voucher</Label>
+                        <Input
+                          type="text"
+                          placeholder="Enter your voucher code"
+                          className="bg-gray-50"
+                          value={voucherCode}
+                          onChange={(e) => setVoucherCode(e.target.value)}
+                          disabled={discount > 0}
+                        />
+                        <Button
+                          type="button"
+                          onClick={applyVoucher}
+                          disabled={discount > 0}
+                        >
+                          {discount > 0 ? "Voucher applied" : "Apply Voucher"}
+                        </Button>
+                        {voucherErrorCode && (
+                          <p className="text-red-500 text-sm py-1">
+                            {voucherErrorCode}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="font-medium border-t border-gray-400">
+                    {discount > 0 && (
+                      <div className="flex justify-between items-start py-5">
+                        <p>Discount amount</p>
+                        <p className="text-base md:text-sm font-semibold text-red-400">
+                          -{" "}
+                          {discount.toLocaleString("en-US", {
+                            maximumFractionDigits: 0,
+                          })}{" "}
+                          PHP
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between items-start py-5">
+                      <p className="font-bold">Total</p>
+                      <p className="text-3xl md:text-xl font-semibold">
+                        {bookingPrice.toLocaleString("en-US", {
+                          maximumFractionDigits: 0,
+                        })}{" "}
+                        PHP
+                      </p>
+                    </div>
+                  </section>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Buttons */}
-            <div className="justify-center flex md:hidden">
+            <div className="justify-center flex">
               <Button
-                className="rounded-md w-full mx-auto"
+                className="rounded-md w-full md:w-3/4 mx-auto"
                 variant={"outline"}
                 type="submit"
                 disabled={isDisabled || submitDisable}
@@ -656,6 +784,10 @@ const ReservationCalendar = () => {
           </section>
         </div>
       </form>
+
+      <section className="px-24 py-5 bg-stone-900 text-white">
+        <p className="font-medium"></p>
+      </section>
     </Form>
   );
 };
