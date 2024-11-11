@@ -113,10 +113,14 @@ const ReservationCalendar = ({
       setBookingTotalPrice(bookingPrice);
 
       if (data.date.from) {
-        setCheckInDate(data.date.from.toISOString());
+        const fromDate = new Date(data.date.from);
+        fromDate.setHours(12, 0, 0, 0); // Set to 12:00:00 PM
+        setCheckInDate(fromDate.toISOString());
       }
       if (data.date.to) {
-        setCheckOutDate(data.date.to.toISOString());
+        const toDate = new Date(data.date.to);
+        toDate.setHours(10, 0, 0, 0); // Set to 12:00:00 PM
+        setCheckOutDate(toDate.toISOString());
       }
 
       router.push("/reservations/confirm");
