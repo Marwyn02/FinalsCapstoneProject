@@ -9,10 +9,11 @@ const ReservationSummary = () => {
     checkOutDate,
     adultNumberGuest,
     childrenNumberGuest,
+    pwdNumberGuest,
     bookingTotalPrice,
   } = useStore();
   return (
-    <section className="col-span-2 space-y-8 p-10 bg-white h-fit">
+    <section className="order-1 md:order-2 col-span-1 md:col-span-2 space-y-8 px-8 pt-16 pb-10 md:p-10 bg-white h-fit border-b-2 border-gray-700">
       <h2 className="font-bold text-center">Stay summary</h2>
       <div className="space-y-5 text-[15px]">
         <div className="space-y-8 border-b pb-5">
@@ -72,15 +73,15 @@ const ReservationSummary = () => {
               <span className="font-medium">{childrenNumberGuest}</span>
             </p>
             <p>
-              PWDs: <span className="font-medium">0</span>
+              PWDs: <span className="font-medium">{pwdNumberGuest}</span>
             </p>
           </div>
         </section>
 
         {/* Payment display */}
-        <div className="flex justify-between pt-5 pb-2.5">
-          <p>Total Payment</p>
-          <p className="text-2xl font-semibold">
+        <div className="flex font-semibold justify-between md:pt-5 pb-2.5">
+          <p>Total</p>
+          <p className="text-3xl md:text-2xl font-bold md:font-semibold">
             {bookingTotalPrice.toLocaleString("en-US", {
               maximumFractionDigits: 0,
             })}{" "}

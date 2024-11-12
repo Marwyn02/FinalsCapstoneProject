@@ -8,7 +8,7 @@ import useStore from "@/app/store/store";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { LoaderCircle } from "lucide-react";
-import { createReservation } from "@/app/api/reservation/route";
+import { createReservation } from "@/features/reservation/api/route";
 import { TokenConfirmation } from "@/app/api/confirmation/TokenConfirmation";
 import { EmailSender } from "@/app/utils/EmailSender";
 
@@ -88,6 +88,7 @@ const ReservationPaymentForm = () => {
     checkOutDate,
     adultNumberGuest,
     childrenNumberGuest,
+    pwdNumberGuest,
     bookingTotalPrice,
     setId,
     setPrefix,
@@ -214,6 +215,11 @@ const ReservationPaymentForm = () => {
     try {
       setIsSubmit(true);
       const uuid = uuidv4().slice(0, 13).toUpperCase();
+      if (data.prefix === "Prefer not to say") {
+        const prefix = "";
+        data.prefix = prefix;
+      }
+
       if (data.firstName && data.lastName && data.contactNumber && payment) {
         setId(uuid);
         setPrefix(data.prefix);
@@ -241,6 +247,7 @@ const ReservationPaymentForm = () => {
         checkOut: checkOutDate,
         adult: adultNumberGuest.toString(),
         children: childrenNumberGuest.toString(),
+        pwd: pwdNumberGuest.toString(),
         payment: bookingTotalPrice.toString(),
         status: "pending",
       };
@@ -268,11 +275,18 @@ const ReservationPaymentForm = () => {
           checkOut: checkOutDate,
           adult: adultNumberGuest.toString(),
           children: childrenNumberGuest.toString(),
+          pwd: pwdNumberGuest.toString(),
           downpayment: reservationHalfPrice.toString(),
           payment: reservationHalfPrice.toString(),
           status: "confirmed",
         };
-        window.open(source.data.attributes.redirect.checkout_url, "_blank");
+        const openPaymongo = window.open(
+          source.data.attributes.redirect.checkout_url,
+          "_blank"
+        );
+        if (!openPaymongo) {
+          window.location.href = source.data.attributes.redirect.checkout_url;
+        }
         listenToPayment(source.data.id, gcashValues);
       }
 

@@ -26,7 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ParallaxBanner, ParallaxProvider } from "react-scroll-parallax";
-import { getAllReservation } from "@/app/api/reservation/route";
+import { getAllReservation } from "@/features/reservation/api/route";
 import {
   calculateTotalDatePrice,
   computeNights,
@@ -119,7 +119,7 @@ const ReservationCalendar = ({
       }
       if (data.date.to) {
         const toDate = new Date(data.date.to);
-        toDate.setHours(10, 0, 0, 0); // Set to 12:00:00 PM
+        toDate.setHours(10, 0, 0, 0); // Set to 10:00:00 AM
         setCheckOutDate(toDate.toISOString());
       }
 
@@ -466,13 +466,13 @@ const ReservationCalendar = ({
                     <div className="grid grid-cols-1 md:grid-cols-2 md:flex md:justify-between items-center pt-2 md:pt-4">
                       {date?.from &&
                         (date.to ? (
-                          <p className="text-base md:text-sm text-center font-light uppercase tracking-wide pb-5 md:pb-0">
-                            {format(date.from, "PPP")} -{" "}
-                            {format(date.to, "PPP")}
+                          <p className="text-base md:text-sm text-center font-semibold uppercase tracking-wide pb-5 md:pb-0">
+                            {format(date.from, "MMMM dd yyyy")} -{" "}
+                            {format(date.to, "MMMM dd yyyy")}
                           </p>
                         ) : (
-                          <p className="text-base md:text-sm text-center font-light uppercase tracking-wide pb-5 md:pb-0">
-                            {format(date.from, "PPP")}
+                          <p className="text-base md:text-sm text-center font-semibold uppercase tracking-wide pb-5 md:pb-0">
+                            {format(date.from, "MMMM dd yyyy")}
                           </p>
                         ))}
 
