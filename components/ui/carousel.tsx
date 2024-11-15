@@ -185,7 +185,7 @@ const CarouselItem = React.forwardRef<
       aria-roledescription="slide"
       className={cn(
         "min-w-0 shrink-0 grow-0 basis-full",
-        orientation === "horizontal" ? "pl-4" : "pt-4",
+        orientation === "horizontal" ? "pl-0.5" : "pt-4",
         className
       )}
       {...props}
@@ -205,10 +205,17 @@ const CarouselPrevious = React.forwardRef<
       ref={ref}
       variant={variant}
       size={size}
+      // className={cn(
+      //   "absolute h-10 w-10 bg-transparent border-transparent rounded-full hover:bg-transparent",
+      //   orientation === "horizontal"
+      //     ? "left-8 md:left-28 top-3/4 translate-y-1/2"
+      //     : "-top-12 left-1/2 -translate-x-1/2 rotate-90",
+      //   className
+      // )}
       className={cn(
-        "absolute h-10 w-10 bg-transparent border-transparent rounded-full hover:bg-transparent",
+        "absolute h-10 w-10 rounded-0 text-[#fcd23d]",
         orientation === "horizontal"
-          ? "left-8 md:left-28 top-3/4 translate-y-1/2"
+          ? "left-0 md:-left-7 top-1/2 -translate-y-1/2"
           : "-top-12 left-1/2 -translate-x-1/2 rotate-90",
         className
       )}
@@ -241,10 +248,17 @@ const CarouselNext = React.forwardRef<
       ref={ref}
       variant={variant}
       size={size}
+      // className={cn(
+      //   "absolute h-10 w-10 bg-transparent border-transparent rounded-full hover:bg-transparent",
+      //   orientation === "horizontal"
+      //     ? "right-8 md:right-28 top-3/4  translate-y-1/2"
+      //     : "-bottom-12 left-1/2 -translate-x-1/2 rotate-90",
+      //   className
+      // )}
       className={cn(
-        "absolute h-10 w-10 bg-transparent border-transparent rounded-full hover:bg-transparent",
+        "absolute h-10 w-10 rounded-0 text-[#fcd23d]",
         orientation === "horizontal"
-          ? "right-8 md:right-28 top-3/4  translate-y-1/2"
+          ? "-right-0 md:-right-7 top-1/2 -translate-y-1/2"
           : "-bottom-12 left-1/2 -translate-x-1/2 rotate-90",
         className
       )}

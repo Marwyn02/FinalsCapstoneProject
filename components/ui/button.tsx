@@ -75,9 +75,9 @@ const CountButton = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {control === "increment" ? (
-          <Plus className="h-6 w-6" />
+          <Plus className="h-5 w-5" />
         ) : (
-          <Minus className="h-6 w-6" />
+          <Minus className="h-5 w-5" />
         )}
       </Comp>
     );
