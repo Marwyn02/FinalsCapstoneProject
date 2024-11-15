@@ -31,7 +31,7 @@ const HomeLanding = () => {
 
               <Link
                 href={"/reservations"}
-                className="font-semibold tracking-wider text-[#eff1d2] text-sm lowercase"
+                className="font-semibold tracking-wider text-[#eff1d2] text-sm"
               >
                 Book now!
               </Link>

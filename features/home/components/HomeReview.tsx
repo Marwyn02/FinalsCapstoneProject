@@ -52,7 +52,7 @@ const HomeReview = ({ reviews }: { reviews: Review[] }) => {
   );
   return (
     <main className="space-b-5">
-      <section className="space-y-10 px-5 md:px-16 md:mt-10 mb-0 md:mx-24 py-16 md:py-10 md:pb-16">
+      <section className="space-y-10 px-5 md:px-16 md:mt-10 mb-0 md:mb-20 md:mx-24 py-16 md:py-10 md:pb-24 border-b border-gray-800">
         <div>
           <h2 className="text-4xl font-medium font-teko">Our Rating</h2>
 
@@ -123,19 +123,6 @@ const HomeReview = ({ reviews }: { reviews: Review[] }) => {
               })}
             </div>
           </div>
-        </div>
-      </section>
-
-      <section>
-        <div className="grid place-content-center gap-y-3 h-[250px] w-full bg-[#353132] py-5 md:mt-10 px-5 md:px-0">
-          <p className="text-4xl font-medium font-teko text-gray-50">
-            Ready to experience the best Crisanto Transient House has to offer?
-          </p>
-          <Link href={"/reservations"} className="w-min md:mx-auto">
-            <Button className="w-min mx-auto px-14 py-6 flex items-center gap-x-2">
-              <p>book now!</p> <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
         </div>
       </section>
 
