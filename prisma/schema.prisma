@@ -13,6 +13,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Admin {
+  id Int @id @default(autoincrement())
+  adminId String @unique
+  username String @unique
+  password String
+  email String 
+  role String
+  loggedIn DateTime
+  createdAt DateTime @default(now())
+  addedReplies    Reply[] @relation("AddedByAdmin")
+  addedReviews Review[] @relation("AddedByAdmin")
+  addedVouchers Voucher[] @relation("AddedByAdmin")
+  addedSpecialPrices SpecialPrice[] @relation("AddedByAdmin")
+  removedReservation Reservation[] @relation("RemovedByAdmin")
+  removedReviews  Review[]  @relation("RemovedByAdmin")
+  removedReplies  Reply[]  @relation("RemovedByAdmin")
+  removedVouchers  Voucher[]  @relation("RemovedByAdmin")
+  removedSpecialPrices SpecialPrice[] @relation("RemovedByAdmin")
+}
+
 model Reservation {
   id  Int @id @default(autoincrement())
   reservationId String @unique
@@ -26,7 +46,14 @@ model Reservation {
   checkOut  DateTime
   adult String
   children  String
+  pwd String?
+  downpayment String
   payment String
+  status String
+  removedBy String?
+  removedByAdmin  Admin?   @relation("RemovedByAdmin", fields: [removedBy], references: [adminId])
+  review Review? 
+  updatedAt DateTime @updatedAt
   createdAt DateTime  @default(now())
 }
 
@@ -36,12 +63,96 @@ model Review {
   firstName String 
   lastName String
   message String 
+  rating String
   staff String
   valueForMoney String 
   facilities String 
   cleanliness String 
   location String 
   comfort String 
+  status String
+  isDeleted Boolean @default(false)
+  deletedAt     DateTime?
+  removalMessage  String? 
+   addedBy        String? 
+  addedByAdmin  Admin?   @relation("AddedByAdmin", fields: [addedBy], references: [adminId])
+  removedBy       String?
+  removedByAdmin  Admin?   @relation("RemovedByAdmin", fields: [removedBy], references: [adminId])
+  reservationId String @unique
+  reservation Reservation @relation(fields: [reservationId], references: [reservationId])
+  reply          Reply? 
+  updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
+}
+
+model Reply {
+  id        Int      @id @default(autoincrement())
+  replyId String @unique
+  message   String
+  author String
+  reviewId  String      @unique
+  review    Review   @relation(fields: [reviewId], references: [reviewId])
+  addedBy        String? 
+  addedByAdmin  Admin?   @relation("AddedByAdmin", fields: [addedBy], references: [adminId])
+  isDeleted     Boolean  @default(false)
+  deletedAt     DateTime?
+  removalMessage  String?
+  removedBy       String?
+  removedByAdmin  Admin?   @relation("RemovedByAdmin", fields: [removedBy], references: [adminId])
+  createdAt DateTime @default(now())
+}
+
+model Profit {
+  id Int @id @default(autoincrement())
+  profitId String @unique 
+  profit Int 
+  bookings Int
+  refund Int
+  month String
+  year String
+  @@unique([month, year])
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+model ConfirmationToken {
+  id String @id @default(uuid())
+  email String 
+  token String @unique 
+  expiresAt DateTime 
+  createdAt DateTime @default(now())
+}
+
+model SpecialPrice { 
+  id String @id @default(uuid())
+  date DateTime @unique
+  price Int
+  isActive Boolean @default(true)
+  addedBy        String? 
+  addedByAdmin  Admin?   @relation("AddedByAdmin", fields: [addedBy], references: [adminId])
+  removedBy       String?
+  removedByAdmin  Admin?   @relation("RemovedByAdmin", fields: [removedBy], references: [adminId])
+}
+
+model Voucher {
+  id             Int       @id @default(autoincrement())
+  code           String    @unique 
+  discountAmount Int?   
+  discountPercent Int?   
+  expiryDate     DateTime? 
+  isActive       Boolean   @default(true) 
+  addedBy        String? 
+  addedByAdmin  Admin?   @relation("AddedByAdmin", fields: [addedBy], references: [adminId])
+  removedBy       String?
+  removedByAdmin  Admin?   @relation("RemovedByAdmin", fields: [removedBy], references: [adminId])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Subsriber {
+  id Int @id @default(autoincrement())
+  email String @unique
+  createdAt DateTime @default(now())
+  removedBy      String?  @unique
 }
 
