@@ -37,10 +37,13 @@ export const calculateSingleReviewTotal = (
   review: Review,
   properties: (keyof Review)[]
 ) => {
-  const totalForOneReview = properties.reduce(
-    (sum, property) => sum + Number(review[property]), // Summing up the ratings for the properties in the review
-    0
-  );
+  if (!review || properties.length === 0) return 0;
+
+  const totalForOneReview = properties.reduce((sum, property) => {
+    const value = Number(review[property]);
+    return isNaN(value) ? sum : sum + value; // Safely handle non-numeric values
+  }, 0);
+
   const averageRatingForReview = totalForOneReview / properties.length; // Calculate the average rating for that review
   return averageRatingForReview; // Return the average rating of the single review
 };
@@ -55,4 +58,16 @@ export const calculateAverageRatingForProperty = (
     0
   );
   return total / reviews.length;
+};
+
+export const calculateAverageReviewRating = (reviews: Review[]): number => {
+  if (!reviews || reviews.length === 0) return 0;
+
+  const totalRating = reviews.reduce(
+    (sum, review) => sum + Number(review.rating),
+    0
+  );
+  const averageRating = totalRating / reviews.length;
+
+  return averageRating;
 };
