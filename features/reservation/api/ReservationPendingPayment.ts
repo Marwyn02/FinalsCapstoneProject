@@ -1,16 +1,16 @@
-// "use server";
+"use server";
 
-// import { Profit } from "@/app/lib/types/types";
-// import prisma from "@/lib/db";
+import prisma from "@/lib/db";
 
-// export default async function ReservationPendingPayment(status : string) {
-//     try {
-// if (status === 'payment pending') {
-//     await prisma.reservation.findMany();
-
-// }
-
-//     } catch (error) {
-
-//     }
-// }
+export default async function ReservationPendingPayment(reservationId: string) {
+  if (reservationId) {
+    await prisma.reservation.update({
+      where: {
+        reservationId,
+      },
+      data: {
+        status: "pendingPayment",
+      },
+    });
+  }
+}

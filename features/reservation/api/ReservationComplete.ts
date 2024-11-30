@@ -2,27 +2,30 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { Profit } from "@/app/lib/types/types";
+import { calculateTotalProfit } from "@/app/utils/ProfitHelpers";
 
 // import { withAccelerate } from "@prisma/extension-accelerate";
 // const prisma = new PrismaClient().$extends(withAccelerate());
 
 export async function ReservationComplete(
   reservationId: string,
-  status: string
+  profit: Profit[]
 ) {
-  try {
-    if (reservationId && status) {
-      await prisma.reservation.update({
-        where: {
-          reservationId,
-        },
-        data: {
-          status: "complete",
-        },
-      });
+  if (reservationId) {
+    const update = await prisma.reservation.update({
+      where: {
+        reservationId,
+      },
+      data: {
+        status: "complete",
+      },
+    });
+
+    if (update) {
+      await calculateTotalProfit(update, profit);
     }
-  } catch (error) {
-    console.error("Error in reservation completion: ", error);
+
+    revalidatePath("/admin-dashboard");
   }
 }
