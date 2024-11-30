@@ -1,11 +1,22 @@
 "use server";
 
-import { Voucher } from "@/app/lib/types/types";
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
-export async function VoucherCreate(data: Voucher) {
-  const { code, discountAmount, discountPercent, expiryDate } = data;
+type VoucherCreate = {
+  id?: number | undefined;
+  code: string;
+  discountAmount: number | null;
+  discountPercent: number | null;
+  expiryDate: Date | null;
+  isActive: boolean;
+  adminId: string;
+  createdAt?: Date | undefined;
+  updatedAt?: Date | undefined;
+};
+
+export async function VoucherCreate(data: VoucherCreate) {
+  const { code, discountAmount, discountPercent, expiryDate, adminId } = data;
 
   const voucher = await prisma.voucher.findUnique({
     where: { code },
@@ -21,6 +32,7 @@ export async function VoucherCreate(data: Voucher) {
       discountAmount,
       discountPercent,
       expiryDate,
+      addedBy: adminId,
     },
   });
 

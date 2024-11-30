@@ -10,6 +10,8 @@ export async function VoucherFetchAll() {
       expiryDate: {
         gt: today,
       },
+      isActive: true,
+      isDeleted: false,
     },
   });
 
@@ -21,9 +23,48 @@ export async function VoucherFetchOne(voucherCode: string) {
     const voucher = await prisma.voucher.findUnique({
       where: {
         code: voucherCode,
+        isActive: true,
       },
     });
 
     return voucher;
   }
+}
+
+export async function VoucherFetchArchivedInAdmin() {
+  const today = new Date();
+
+  const vou = await prisma.voucher.findMany({
+    where: {
+      expiryDate: {
+        lt: today,
+      },
+      isActive: true,
+    },
+  });
+
+  if (vou) {
+    vou.map(
+      async (v) =>
+        await prisma.voucher.update({
+          where: {
+            code: v.code,
+          },
+          data: {
+            isActive: false,
+          },
+        })
+    );
+  }
+
+  const voucher = await prisma.voucher.findMany({
+    where: {
+      OR: [{ isDeleted: true }, { isActive: false }],
+    },
+    include: {
+      removedByAdmin: true,
+    },
+  });
+
+  return voucher;
 }
