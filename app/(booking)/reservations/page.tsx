@@ -1,11 +1,20 @@
-import BookingCalendar from "@/app/ui/reservations/booking-calendar";
-import pause from "@/app/lib/pause";
+import ReservationCalendar from "@/features/reservation/components/ReservationCalendar";
+import { ReservationFetchAll } from "@/features/reservation/api/ReservationFetch";
+import { SpecialPriceFetch } from "@/features/specialDate/api/SpecialPriceFetch";
+import { VoucherFetchAll } from "@/features/voucher/api/VoucherFetch";
 
 export default async function Page() {
-  await pause(1000);
+  const reservations = await ReservationFetchAll();
+  const specialPrices = await SpecialPriceFetch();
+  const vouchers = await VoucherFetchAll();
+
   return (
     <main className="bg-[#fcf4e9]">
-      <BookingCalendar />
+      <ReservationCalendar
+        reservations={reservations}
+        specialPrices={specialPrices}
+        vouchers={vouchers}
+      />
     </main>
   );
 }
