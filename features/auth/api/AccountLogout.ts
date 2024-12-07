@@ -1,9 +1,9 @@
 "use server";
 
-import { AuditLog } from "@/features/audit/api/AuditLog";
 import prisma from "@/lib/db";
+import { AuditLog } from "@/features/audit/api/AuditLog";
 
-export async function AccountLogout(adminId: string, username: string) {
+export async function AccountLogout(adminId: string) {
   await prisma.admin.update({
     where: {
       adminId,
