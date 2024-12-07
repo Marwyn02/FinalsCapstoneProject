@@ -210,8 +210,6 @@ const ReservationPaymentForm = () => {
       if (sourceData.data.attributes.status === "failed") {
         break;
       } else if (sourceData.data.attributes.status === "paid") {
-        console.log("Paid");
-
         await ReservationCreate(paymentValues);
         await EmailSender({
           email: paymentValues.email,
@@ -287,7 +285,6 @@ const ReservationPaymentForm = () => {
 
             if (isMobile) {
               // Redirect in the same tab for mobile devices
-              // window.location.href = checkoutUrl;
               window.open(checkoutUrl, "_blank");
             } else {
               // Open the PayMongo checkout URL
@@ -480,8 +477,8 @@ const ReservationPaymentForm = () => {
                         <Input
                           placeholder="Phone Number"
                           type="text"
-                          inputMode="numeric" // Ensures numeric keyboard on mobile devices
-                          pattern="[0-9]*" // Prevents non-numeric input
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           maxLength={11}
                           {...field}
                         />
@@ -501,7 +498,8 @@ const ReservationPaymentForm = () => {
                   <p>Total Booking Amount</p>
                   <p>
                     {Number(bookingTotalPrice).toLocaleString("en-US", {
-                      maximumFractionDigits: 0,
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
                     }) +
                       " " +
                       "PHP"}
@@ -512,7 +510,8 @@ const ReservationPaymentForm = () => {
                   <p className="text-sm">Required Downpayment</p>
                   <p className="text-base md:text-xl">
                     {Number(bookingTotalPrice / 2).toLocaleString("en-US", {
-                      maximumFractionDigits: 0,
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
                     }) +
                       " " +
                       "PHP"}

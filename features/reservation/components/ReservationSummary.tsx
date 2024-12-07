@@ -83,7 +83,8 @@ const ReservationSummary = () => {
           <p>Total</p>
           <p className="text-3xl md:text-2xl font-bold md:font-semibold">
             {bookingTotalPrice.toLocaleString("en-US", {
-              maximumFractionDigits: 0,
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
             })}{" "}
             PHP
           </p>
