@@ -9,7 +9,7 @@ import html2canvas from "html2canvas";
 import Map from "../../../components/map/Map";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { getReservation } from "../api/route";
+import { ReservationFetchOne } from "../api/ReservationFetch";
 
 const ReservationReceipt = ({
   initialReservation,
@@ -25,7 +25,7 @@ const ReservationReceipt = ({
   useEffect(() => {
     if (!reservation) {
       const interval = setInterval(async () => {
-        const res = await getReservation(id); // Your API endpoint
+        const res = await ReservationFetchOne(id); // Your API endpoint
         if (res) {
           setReservation(res);
           clearInterval(interval); // Stop re-fetching once reservation is found

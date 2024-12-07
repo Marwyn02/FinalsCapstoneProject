@@ -2,9 +2,11 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { Reservation, SpecialPrice, Voucher } from "@/app/lib/types/types";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
+import { ReservationUpdate } from "../api/ReservationUpdate";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -21,16 +23,12 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-
-import { Input } from "@/components/ui/input";
 import {
   calculateTotalDatePrice,
   computeNights,
   guestCountHandler,
   setPricesForMonth,
 } from "@/app/utils/ReservationHelpers";
-import { Reservation, SpecialPrice, Voucher } from "@/app/lib/types/types";
-import { ReservationUpdate } from "../api/ReservationUpdate";
 
 const formSchema = z.object({
   guestAdult: z
@@ -38,31 +36,23 @@ const formSchema = z.object({
       message: "Guest is required!",
     })
     .min(1, { message: "You haven't set your adult count yet." })
-    .max(12)
+    .max(15)
     .optional(),
-  guestChildren: z.number().optional(),
-  guestPWD: z.number().optional(),
-  date: z
-    .object(
-      {
-        from: z.date({ message: "Your check-in date is missing." }).optional(),
-        to: z.date({ message: "Check out date is required!" }).optional(),
-      },
-      { message: "Check-in and check-out is required!" }
-    )
-    .refine((data) => data.from, {
-      message: "Check-in and check-out is required!",
-    })
-    .refine((data) => data.to, {
-      message: "Check-out date is required!",
-    }),
+  guestChildren: z.number().max(15).optional(),
+  guestPWD: z.number().max(15).optional(),
+  date: z.object(
+    {
+      from: z.date({ message: "Your check-in date is missing." }).optional(),
+      to: z.date({ message: "Check out date is required!" }).optional(),
+    },
+    { message: "Check-in and check-out is required!" }
+  ),
 });
 
 const ReservationUpdateForm = ({
   singleReservation,
   reservations,
   specialPrices,
-  vouchers,
 }: {
   singleReservation: Reservation | null;
   reservations: Reservation[];
@@ -81,11 +71,7 @@ const ReservationUpdateForm = ({
   const [bookingPrice, setBookingPrice] = useState<number>(
     Number(singleReservation?.payment) | 0
   );
-  const [voucherCode, setVoucherCode] = useState("");
-  const [discount, setDiscount] = useState(0);
-  const [discountedPrice, setDiscountedPrice] = useState(0);
-  const [code, setCode] = useState("");
-  const [voucherErrorCode, setVoucherErrorCode] = useState("");
+  const [guestCountPrice, setGuestCountPrice] = useState<number>(0);
   const [disabledDates, setDisabledDates] = useState<Date[]>([]);
   const [selectedLastDay, setSelectedLastDay] = useState<Date | null>(null);
   const [submitDisable, setSubmitDisable] = useState<boolean>(false);
@@ -108,38 +94,34 @@ const ReservationUpdateForm = ({
   });
 
   async function onSubmit(data: z.infer<typeof formSchema>) {
-    try {
-      setSubmitDisable(true);
-      if (data.date.from) {
-        const fromDate = new Date(data.date.from);
-        fromDate.setHours(12, 0, 0, 0); // Set to 12:00:00 PM
-      }
-      if (data.date.to) {
-        const toDate = new Date(data.date.to);
-        toDate.setHours(10, 0, 0, 0); // Set to 10:00:00 AM
-      }
+    setSubmitDisable(true);
+    if (data.date.from) {
+      const fromDate = new Date(data.date.from);
+      fromDate.setHours(12, 0, 0, 0); // Set to 12:00:00 PM
+    }
+    if (data.date.to) {
+      const toDate = new Date(data.date.to);
+      toDate.setHours(10, 0, 0, 0); // Set to 10:00:00 AM
+    }
 
-      const values = {
-        checkIn: data.date.from,
-        checkOut: data.date.to,
-        adult: data.guestAdult?.toString() ?? singleReservation?.adult,
-        children: data.guestChildren?.toString() ?? singleReservation?.children,
-        pwd: data.guestPWD?.toString(),
-        payment: updatedPrice.toString(),
-      };
+    const values = {
+      checkIn: data.date.from ?? singleReservation?.checkIn,
+      checkOut: data.date.to ?? singleReservation?.checkOut,
+      adult: data.guestAdult?.toString() ?? singleReservation?.adult,
+      children: data.guestChildren?.toString() ?? singleReservation?.children,
+      pwd: data.guestPWD?.toString(),
+      payment: updatedPrice.toString(),
+    };
 
-      if (singleReservation?.reservationId && values) {
-        const response = await ReservationUpdate(
-          singleReservation?.reservationId,
-          values
-        );
+    if (singleReservation?.reservationId && values) {
+      const response = await ReservationUpdate(
+        singleReservation?.reservationId,
+        values
+      );
 
-        if (response) {
-          router.push("/admin-dashboard/reservations");
-        }
+      if (response) {
+        router.push("/admin-dashboard/reservations");
       }
-    } catch (error) {
-      console.error("Reservation submission failed: ", error);
     }
   }
 
@@ -149,14 +131,11 @@ const ReservationUpdateForm = ({
 
   useEffect(() => {
     if (specialPrices) {
-      // Transform fetched data into the desired object format
       const datePriceMap = specialPrices.reduce((acc, { date, price }) => {
-        const formattedDate = date.toISOString().split("T")[0]; // Convert Date to "YYYY-MM-DD"
+        const formattedDate = date.toISOString().split("T")[0];
         acc[formattedDate] = price;
         return acc;
       }, {} as Record<string, number>);
-
-      // Update specificDatePrices with the transformed data
       setSpecificDatePrices(datePriceMap);
     }
   }, [specialPrices]);
@@ -184,15 +163,21 @@ const ReservationUpdateForm = ({
     const isLastSelectedDate =
       date.getTime() === (selectedLastDay?.getTime() ?? null);
 
+    const isSpecialPrice = !!specificDatePrices[dateString];
+
     const price =
       !isLastSelectedDate && datePrices[dateString]
         ? `₱${datePrices[dateString].toLocaleString("en-US")}`
-        : ""; // Display blank for the last selected date
+        : "";
+
+    const priceClass = isSpecialPrice ? "text-yellow-600 font-bold" : "";
 
     return (
       <div className="day-cell">
-        <span className=" font-medium">{date.getDate()}</span>
-        {price && <div className="price text-[12px]">{price}</div>}
+        <span className={`font-medium ${priceClass}`}>{date.getDate()}</span>
+        {price && (
+          <div className={`price text-[12px] ${priceClass}`}>{price}</div>
+        )}
       </div>
     );
   };
@@ -200,39 +185,33 @@ const ReservationUpdateForm = ({
   // Side effect the disable dates
   useEffect(() => {
     const fetchReservations = async () => {
-      try {
-        const disabledDatesArray = reservations
-          .filter(
-            (reservation) =>
-              reservation.status !== "canceled" &&
-              reservation.status !== "updating"
-          )
-          .flatMap(({ checkIn, checkOut }) => {
-            const dates = [];
-            let currentDate = new Date(checkIn);
+      const disabledDatesArray = reservations
+        .filter(
+          ({ status }) =>
+            status !== "canceled" && status !== "paid" && status !== "updating"
+        )
+        .flatMap(({ checkIn, checkOut }) => {
+          const dates = [];
+          let currentDate = new Date(checkIn);
 
-            // Get the dates from and between and last on the checking
-            while (currentDate <= checkOut) {
-              dates.push(new Date(currentDate));
-              currentDate.setDate(currentDate.getDate() + 1);
-            }
+          // Get the dates from and between and last on the checking
+          while (currentDate <= checkOut) {
+            dates.push(new Date(currentDate));
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
 
-            return dates;
-          });
+          return dates;
+        });
 
-        setDisabledDates(disabledDatesArray);
-      } catch (error) {
-        console.error("Error fetching reservations: ", error);
-      }
+      setDisabledDates(disabledDatesArray);
     };
-
     fetchReservations();
   }, []);
 
   const isDateDisabled = (date: Date) => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalize today's date to midnight
-    if (date < today) return true; // Disable past dates
+    today.setHours(0, 0, 0, 0);
+    if (date < today) return true;
 
     // Exclude current reservation dates from the disabled dates list
     const isWithinUpdateRange =
@@ -258,7 +237,6 @@ const ReservationUpdateForm = ({
       daysInRange.push(new Date(currentDate));
       currentDate.setDate(currentDate.getDate() + 1);
     }
-
     return daysInRange.some((date) => isDateDisabled(date));
   };
 
@@ -278,8 +256,6 @@ const ReservationUpdateForm = ({
         resultDate,
         datePrices
       );
-
-      // field.onChange({ from: fromDate, to: resultDate });
       setBookingPrice(totalPrice);
       setSelectedLastDay(resultDate);
       setDate({ from: date?.from, to: resultDate });
@@ -287,34 +263,34 @@ const ReservationUpdateForm = ({
     }
   };
 
-  const applyVoucher = () => {
-    // Check if the entered code matches any code in the vouchers array
-    const matchedVoucher = vouchers.find(
-      (voucher) => voucher.code === voucherCode
-    );
+  // const applyVoucher = () => {
+  //   // Check if the entered code matches any code in the vouchers array
+  //   const matchedVoucher = vouchers.find(
+  //     (voucher) => voucher.code === voucherCode
+  //   );
 
-    if (
-      matchedVoucher?.discountPercent &&
-      matchedVoucher.discountPercent !== 0
-    ) {
-      const discountPercent =
-        (bookingPrice * matchedVoucher.discountPercent) / 100;
-      setDiscount(discountPercent);
-      setDiscountedPrice(bookingPrice - discountPercent);
-      setCode(matchedVoucher.code);
-      setVoucherErrorCode("");
-    } else if (
-      matchedVoucher?.discountAmount &&
-      matchedVoucher.discountAmount !== 0
-    ) {
-      setDiscount(matchedVoucher.discountAmount);
-      setDiscountedPrice(bookingPrice - matchedVoucher.discountAmount);
-      setCode(matchedVoucher.code);
-      setVoucherErrorCode("");
-    } else {
-      setVoucherErrorCode("Invalid voucher code");
-    }
-  };
+  //   if (
+  //     matchedVoucher?.discountPercent &&
+  //     matchedVoucher.discountPercent !== 0
+  //   ) {
+  //     const discountPercent =
+  //       (bookingPrice * matchedVoucher.discountPercent) / 100;
+  //     setDiscount(discountPercent);
+  //     setDiscountedPrice(bookingPrice - discountPercent);
+  //     setCode(matchedVoucher.code);
+  //     setVoucherErrorCode("");
+  //   } else if (
+  //     matchedVoucher?.discountAmount &&
+  //     matchedVoucher.discountAmount !== 0
+  //   ) {
+  //     setDiscount(matchedVoucher.discountAmount);
+  //     setDiscountedPrice(bookingPrice - matchedVoucher.discountAmount);
+  //     setCode(matchedVoucher.code);
+  //     setVoucherErrorCode("");
+  //   } else {
+  //     setVoucherErrorCode("Invalid voucher code");
+  //   }
+  // };
 
   useEffect(() => {
     if (date?.from && date?.to) {
@@ -331,11 +307,24 @@ const ReservationUpdateForm = ({
   // Check if the fields are filled to undisabled the button
   useEffect(() => {
     if (date?.from && date?.to && adultCount > 0) {
-      setIsDisabled(false); // Enable button
+      setIsDisabled(false);
     } else {
-      setIsDisabled(true); // Disable button
+      setIsDisabled(true);
     }
   }, [date, adultCount]);
+
+  const updateExceedFee = (adultCount: number, childCount: number) => {
+    const excessAdults = Math.max(0, adultCount - 8);
+    const excessChildren = Math.max(0, childCount - 8);
+    const totalExceedFee = excessAdults * 300 + excessChildren * 300;
+
+    setGuestCountPrice(totalExceedFee * nightCount);
+  };
+
+  // Update the exceed fee whenever adultCount changes
+  useEffect(() => {
+    updateExceedFee(adultCount, childrenCount);
+  }, [adultCount, childrenCount, nightCount]);
 
   if (!singleReservation) {
     return <p>Loading...</p>;
@@ -382,7 +371,7 @@ const ReservationUpdateForm = ({
 
             <div>
               <p className="font-medium text-sm">PWD</p>
-              <p>{/* {singleReservation.adult} */}0</p>
+              <p>{singleReservation.pwd}</p>
             </div>
           </div>
         </div>
@@ -399,7 +388,8 @@ const ReservationUpdateForm = ({
               <p className="font-medium text-sm">Downpayment</p>
               <p>
                 {Number(singleReservation.downpayment).toLocaleString("en-US", {
-                  maximumFractionDigits: 0,
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
                 })}{" "}
                 PHP
               </p>
@@ -409,7 +399,8 @@ const ReservationUpdateForm = ({
               <p className="font-medium text-sm">Balance</p>
               <p className="font-bold text-lg">
                 {Number(singleReservation.payment).toLocaleString("en-US", {
-                  maximumFractionDigits: 0,
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
                 })}{" "}
                 PHP
               </p>
@@ -425,7 +416,6 @@ const ReservationUpdateForm = ({
         <div className="grid grid-cols-1 lg:grid-cols-3 lg:items-start gap-y-5 md:gap-y-10 px-3 md:px-0 md:py-12">
           {/* Calendar */}
           <section className="space-y-3 lg:col-span-2 pb-3 border-b border-gray-700 md:border-0 md:pb-0">
-            {/* Calendar */}
             <div className="space-y-4 md:px-3 pt-5 md:pt-0 md:pb-0 pb-2">
               <h4 className="text-2xl text-center font-teko uppercase tracking-widest">
                 Select your stay
@@ -466,9 +456,6 @@ const ReservationUpdateForm = ({
                               });
 
                               setDate({ from: value.from, to: undefined });
-                              setDiscount(0);
-                              setVoucherCode("");
-                              setDiscountedPrice(0);
                               setSelectedLastDay(null);
                             } else {
                               // If from and to are valid, proceed as usual
@@ -482,10 +469,6 @@ const ReservationUpdateForm = ({
                                 from: value.from,
                                 to: value.to,
                               });
-
-                              setDiscount(0);
-                              setVoucherCode("");
-                              setDiscountedPrice(0);
                               setBookingPrice(totalPrice);
                               setUpdatedPrice(
                                 totalPrice -
@@ -498,7 +481,7 @@ const ReservationUpdateForm = ({
                             // Handle regular selection (only `from` is selected)
                             field.onChange({
                               from: value.from,
-                              to: undefined, // Keep `to` undefined for a single date selection
+                              to: undefined,
                             });
                             setDate({
                               from: value.from,
@@ -515,13 +498,12 @@ const ReservationUpdateForm = ({
                         max={14}
                         disabled={(date) => {
                           const today = new Date();
-                          today.setHours(0, 0, 0, 0); // Ensure we are comparing only the date part
+                          today.setHours(0, 0, 0, 0);
 
                           // Disable past dates
                           if (date <= today) {
                             return true;
                           }
-
                           const endDate = new Date(today);
                           endDate.setMonth(endDate.getMonth() + 3);
                           endDate.setDate(0);
@@ -545,7 +527,6 @@ const ReservationUpdateForm = ({
                           ) {
                             return true;
                           }
-
                           return false;
                         }}
                         formatters={{
@@ -562,13 +543,13 @@ const ReservationUpdateForm = ({
                     <div className="grid grid-cols-1 md:grid-cols-2 md:flex md:justify-between items-center pt-2 md:pt-4">
                       {date?.from &&
                         (date.to ? (
-                          <p className="text-base md:text-sm text-center font-bold uppercase tracking-wide pb-5 md:pb-0">
-                            {format(date.from, "PPP")} -{" "}
-                            {format(date.to, "PPP")}
+                          <p className="text-base md:text-sm text-center font-semibold uppercase tracking-wide pb-5 md:pb-0">
+                            {format(date.from, "MMMM dd yyyy")} -{" "}
+                            {format(date.to, "MMMM dd yyyy")}
                           </p>
                         ) : (
-                          <p className="text-base md:text-sm text-center font-bold uppercase tracking-wide pb-5 md:pb-0">
-                            {format(date.from, "PPP")}
+                          <p className="text-base md:text-sm text-center font-semibold uppercase tracking-wide pb-5 md:pb-0">
+                            {format(date.from, "MMMM dd yyyy")}
                           </p>
                         ))}
 
@@ -592,13 +573,12 @@ const ReservationUpdateForm = ({
                                 }
                               }}
                             >
-                              {days} Days
+                              {days} Nights
                             </button>
                           ))}
                         </div>
                       )}
                     </div>
-
                     <FormMessage />
                   </FormItem>
                 )}
@@ -636,7 +616,7 @@ const ReservationUpdateForm = ({
                               setAdultCount,
                               -1,
                               1,
-                              12
+                              15
                             );
                             field.onChange(adultCount - 1);
                           }}
@@ -658,14 +638,20 @@ const ReservationUpdateForm = ({
                               setAdultCount,
                               1,
                               1,
-                              12
+                              15
                             );
                             field.onChange(adultCount + 1);
                           }}
-                          disabled={adultCount >= 12}
+                          disabled={adultCount >= 15}
                         />
                       </div>
                     </FormControl>
+                    {adultCount >= 8 && (
+                      <p className="pt-5 text-red-600 px-0 md:mx-10">
+                        Note: Every additional adult above 8 will incur an extra
+                        charge of PHP 300.00 per head and per night.
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -698,7 +684,7 @@ const ReservationUpdateForm = ({
                               setChildrenCount,
                               -1,
                               0,
-                              12
+                              15
                             );
                             field.onChange(childrenCount - 1);
                           }}
@@ -720,14 +706,20 @@ const ReservationUpdateForm = ({
                               setChildrenCount,
                               1,
                               0,
-                              12
+                              15
                             );
                             field.onChange(childrenCount + 1);
                           }}
-                          disabled={childrenCount >= 12}
+                          disabled={childrenCount >= 15}
                         />
                       </div>
                     </FormControl>
+                    {childrenCount >= 8 && (
+                      <p className="pt-5 text-red-600 px-0 md:mx-10">
+                        Note: Every additional child above 8 will incur an extra
+                        charge of PHP 300.00 per head and per night.
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -755,7 +747,7 @@ const ReservationUpdateForm = ({
                           size={"count"}
                           control="decrement"
                           onClick={() => {
-                            guestCountHandler(pwdCount, setPwdCount, -1, 0, 5);
+                            guestCountHandler(pwdCount, setPwdCount, -1, 0, 15);
                             field.onChange(pwdCount - 1);
                           }}
                           disabled={pwdCount <= 0}
@@ -771,10 +763,10 @@ const ReservationUpdateForm = ({
                           size={"count"}
                           control="increment"
                           onClick={() => {
-                            guestCountHandler(pwdCount, setPwdCount, 1, 0, 5);
+                            guestCountHandler(pwdCount, setPwdCount, 1, 0, 15);
                             field.onChange(pwdCount + 1);
                           }}
-                          disabled={pwdCount >= 5}
+                          disabled={pwdCount >= 15}
                         />
                       </div>
                     </FormControl>
@@ -792,104 +784,66 @@ const ReservationUpdateForm = ({
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ duration: 0.3 }}
-                  className="text-base md:text-sm space-y-5 px-2 py-5 md:p-8 md:pb-1 md:px-14"
                 >
-                  {/* <section className="space-y-5">
-                    {nightCount > 1 && (
-                      <div className="text-sm space-y-1">
-                        <p className="font-bold">Voucher</p>
-                        <div className="flex">
-                          <Input
-                            placeholder="*"
-                            className="bg-gray-50 border-black border-r-0 font-bold"
-                            value={voucherCode}
-                            onChange={(e) => setVoucherCode(e.target.value)}
-                            disabled={discount > 0}
-                          />
-                          <button
-                            className="bg-gray-700 px-6 text-xs font-medium text-gray-50"
-                            type="button"
-                            onClick={applyVoucher}
-                            disabled={discount > 0}
-                          >
-                            {discount > 0 ? "Applied" : "Apply"}
-                          </button>
-                        </div>
-                        {voucherErrorCode && (
-                          <p className="text-red-500 text-sm py-1">
-                            {voucherErrorCode}
+                  <section className="text-base md:text-sm space-y-5 px-2 py-5 md:p-8 md:pb-1 md:px-14">
+                    <section className="font-medium border-t border-gray-400 space-y-2">
+                      <div className="space-y-2 pt-3">
+                        {/* Subtotal */}
+                        <div className="flex justify-between items-start font-normal">
+                          <p>Subtotal</p>
+                          <p>
+                            {bookingPrice.toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}{" "}
+                            PHP
                           </p>
+                        </div>
+
+                        {guestCountPrice > 0 && (
+                          <div className="flex justify-between items-start font-normal">
+                            <p>Exceed Fee</p>
+                            <p>
+                              {guestCountPrice > 0
+                                ? guestCountPrice.toLocaleString("en-US", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })
+                                : "0"}{" "}
+                              PHP
+                            </p>
+                          </div>
                         )}
-                      </div>
-                    )}
-                  </section> */}
 
-                  <section className="font-medium border-t border-gray-400 space-y-2">
-                    <div className="space-y-2 pt-3">
-                      {/* Subtotal */}
-                      <div className="flex justify-between items-start font-normal">
-                        <p>Subtotal</p>
-                        <p>
-                          {bookingPrice.toLocaleString("en-US", {
-                            maximumFractionDigits: 0,
-                          })}{" "}
-                          PHP
-                        </p>
+                        <div className="flex justify-between items-start text-red-400 font-normal">
+                          <p>Downpayment Already Made</p>
+                          <p>
+                            -
+                            {Number(
+                              singleReservation.downpayment
+                            ).toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}{" "}
+                            PHP
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="flex justify-between items-start text-red-400 font-normal">
-                        <p>Downpayment Already Made</p>
-                        <p>
-                          -
-                          {Number(singleReservation.downpayment).toLocaleString(
+                      <div className="flex justify-between items-start py-5">
+                        <p className="font-bold">Total</p>
+                        <p className="text-3xl md:text-xl font-semibold">
+                          {(guestCountPrice + updatedPrice).toLocaleString(
                             "en-US",
                             {
-                              maximumFractionDigits: 0,
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
                             }
                           )}{" "}
                           PHP
                         </p>
                       </div>
-
-                      {/* Voucher */}
-                      {/* {discount > 0 && (
-                        <div className="flex justify-between items-start text-red-400 font-normal">
-                          <p>Voucher Code - {code}</p>
-                          <p>
-                            -
-                            {discount.toLocaleString("en-US", {
-                              maximumFractionDigits: 0,
-                            })}{" "}
-                            PHP
-                          </p>
-                        </div>
-                      )} */}
-                    </div>
-
-                    <div className="flex justify-between items-start py-5">
-                      <p className="font-bold">Total</p>
-                      {/* {discountedPrice > 0 ? (
-                        <p className="text-3xl md:text-xl font-semibold">
-                          {discountedPrice.toLocaleString("en-US", {
-                            maximumFractionDigits: 0,
-                          })}{" "}
-                          PHP
-                        </p>
-                      ) : (
-                        <p className="text-3xl md:text-xl font-semibold">
-                          {updatedPrice.toLocaleString("en-US", {
-                            maximumFractionDigits: 0,
-                          })}{" "}
-                          PHP
-                        </p>
-                      )} */}
-                      <p className="text-3xl md:text-xl font-semibold">
-                        {updatedPrice.toLocaleString("en-US", {
-                          maximumFractionDigits: 0,
-                        })}{" "}
-                        PHP
-                      </p>
-                    </div>
+                    </section>
                   </section>
                 </motion.div>
               )}
@@ -902,7 +856,7 @@ const ReservationUpdateForm = ({
                 type="submit"
                 disabled={isDisabled || submitDisable}
               >
-                Update
+                Update Reservation
               </Button>
             </div>
           </section>

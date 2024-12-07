@@ -64,7 +64,7 @@ export async function createReservation(values: any) {
 
 // Get only one reservation that matches the id
 // This uses in the reservation-success
-export async function getReservation(reservationId: string) {
+export async function ReservationFetchOne(reservationId: string) {
   const reservation = await prisma.reservation.findFirst({
     where: {
       reservationId,
@@ -74,29 +74,30 @@ export async function getReservation(reservationId: string) {
   return reservation;
 }
 
-// Get all reservation for the disable dates especially
-export async function getAllReservation() {
-  const today = new Date();
+// export async function ReservationFetchAll() {
+//   const reservation = await prisma.reservation.findMany();
 
-  // const reservation = await prisma.reservation.findMany({
-  //   where: {
-  //     checkOut: {
-  //       gt: today,
-  //     },
-  //   },
-  // });
-
-  const reservation = await prisma.reservation.findMany();
-
-  return reservation;
-}
+//   return reservation;
+// }
 
 // Get all reservations that is not pending
-export async function getAllConfirmedReservation() {
+export async function ReservationFetchAll() {
   const reservation = await prisma.reservation.findMany({
     where: {
       NOT: {
         status: "pending",
+      },
+    },
+  });
+
+  return reservation;
+}
+
+export async function ReservationSpecialDate() {
+  const reservation = await prisma.reservation.findMany({
+    where: {
+      NOT: {
+        OR: [{ status: "pending" }, { status: "canceled" }],
       },
     },
   });
