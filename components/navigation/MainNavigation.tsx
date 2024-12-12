@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Admin } from "@/app/lib/types/types";
 
 import ThemedLink from "./ThemedLink";
 import {
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 
-const MainNavigation = () => {
+const MainNavigation = ({ admin }: { admin: Admin }) => {
   const path = usePathname();
 
   const [scrolled, setScrolled] = useState(false);
@@ -41,11 +42,13 @@ const MainNavigation = () => {
 
   return (
     <nav
-      className={`fixed z-50 flex justify-between lg:grid lg:grid-cols-3 items-center py-3 px-5 md:px-28 w-full duration-300 ${
-        path !== "/"
-          ? "text-black fixed md:relative py-3 md:py-2 bg-white"
-          : "text-gray-200 sm:bg-transparent md:py-0"
-      } ${scrolled ? "md:bg-[#222] bg-white" : "bg-white"}`}
+      className={`fixed z-50 flex justify-between lg:grid lg:grid-cols-4 items-center py-3 px-5 md:px-32 w-full duration-300 ${
+        path === "/"
+          ? "text-gray-200 sm:bg-gradient-to-b sm:from-black/10 from-60% sm:to-transparent md:py-0"
+          : path.startsWith("/reservations")
+          ? "text-black fixed md:relative md:py-0 bg-white"
+          : "bg-white md:py-0"
+      } ${scrolled ? "md:bg-[#222] bg-white" : ""}`}
     >
       {/* Logo */}
       <div className="flex justify-start items-center col-span-1 col-start-1">
@@ -61,7 +64,7 @@ const MainNavigation = () => {
       </div>
 
       {/* Sections pages */}
-      <section className="hidden lg:flex justify-end items-center gap-x-4 col-span-2 text-[15px] font-medium">
+      <section className="hidden lg:flex justify-end items-center gap-x-2 col-span-3 text-[15px] font-medium">
         <Link
           href={"/"}
           className={path === "/" ? "underline font-bold px-5" : "px-5 py-4"}
@@ -108,12 +111,15 @@ const MainNavigation = () => {
         >
           Contact us
         </Link>
+        {admin && admin.role && (
+          <Link href={"/admin-dashboard"} className={"px-5 py-4"}>
+            Dashboard
+          </Link>
+        )}
         <Link
           href={"reservations"}
           className={
-            path.startsWith("/reservations")
-              ? "underline font-bold "
-              : "bg-yellow-400 px-5 py-4 text-[#222] font-semibold hover:bg-[#555] hover:text-white duration-300"
+            "bg-[#dbb07c] px-5 py-6 text-[#222] font-semibold hover:bg-yellow-500 hover:text-white duration-300"
           }
         >
           Book now
