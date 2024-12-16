@@ -2,56 +2,73 @@ import NextAuth, { SessionStrategy } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import db from "@/lib/db";
 import { compare } from "bcrypt";
+import { v4 as uuidv4 } from "uuid";
+// import { AuditLog } from "@/features/audit/api/AuditLog";
 
 export const authOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: {},
+        username: {},
         password: {},
       },
       async authorize(credentials, req) {
-        try {
-          console.log("Credentials received:", credentials);
+        const admin = await db.admin.findUnique({
+          where: {
+            username: credentials?.username.toLowerCase(),
+          },
+        });
 
-          // Add logic here to look up the user from the credentials supplied
-          const user = await db.user.findUnique({
+        if (!admin) {
+          return null;
+        }
+
+        const passwordCorrect = await compare(
+          credentials?.password || "",
+          admin?.password || ""
+        );
+
+        if (passwordCorrect) {
+          // Update the admin's loggedIn date
+          await db.admin.update({
             where: {
-              email: credentials?.email,
+              adminId: admin.adminId,
+            },
+            data: {
+              loggedIn: new Date(),
             },
           });
 
-          console.log("User found:", user);
+          const ipAddress =
+            req.headers?.["x-forwarded-for"]?.toString().split(",")[0] ||
+            (req as any).socket?.remoteAddress ||
+            "Unknown IP";
 
-          if (!user) {
-            console.log("No user found.");
-            return null;
-          }
+          const uuid = uuidv4().slice(0, 13).toUpperCase();
 
-          const passwordCorrect = await compare(
-            credentials?.password || "",
-            user?.password || ""
-          );
+          // const values = {
+          //   username: admin.username.toString(),
+          //   auditId: `audit-${uuid}`,
+          //   adminId: admin.adminId.toString(),
+          //   resourceType: null,
+          //   resourceID: null,
+          //   details: null,
+          //   ipAddress,
+          // };
 
-          console.log({ passwordCorrect });
+          // await AuditLog("Login", values);
 
-          if (passwordCorrect) {
-            console.log("Youre logged in: ", user);
-
-            // Any object returned will be saved in `user` property of the JWT
-            return {
-              ...user,
-              id: user?.id.toString(), // Convert the ID to a string
-            };
-          } else {
-            // If you return null then an error will be displayed advising the user to check their details.
-            return null;
-
-            // You can also Reject this callback with an Error thus the user will be sent to the error page with the error message as a query parameter
-          }
-        } catch (error) {
-          console.error("Error in authorize function:", error);
+          // Any object returned will be saved in `admin` property of the JWT
+          return {
+            id: admin.adminId.toString(),
+            adminId: admin.adminId.toString(),
+            name: admin.username.toString(),
+            username: admin.username.toString(),
+            role: admin.role,
+          };
+        } else {
+          // If you return null then an error will be displayed advising the user to check their details.
           return null;
         }
       },
@@ -64,35 +81,31 @@ export const authOptions = {
 
   callbacks: {
     async session({ session, token }: any) {
-      if (token) {
-        session.user.id = token.id;
-        session.user.email = token.email;
-        session.user.firstName = token.firstName;
-        session.user.lastName = token.lastName;
-      }
+      session.user = {
+        adminId: token.adminId,
+        username: token.username,
+        role: token.role,
+      };
       return session;
     },
 
     async jwt({ token, user }: any) {
-      const dbUser = await db.user.findFirst({
-        where: {
-          email: token.email,
-        },
-      });
+      if (user) {
+        token.adminId = user.adminId;
+        token.username = user.username;
+        token.role = user.role;
+      } else {
+        const dbAdmin = await db.admin.findFirst({
+          where: { username: token.username },
+        });
 
-      if (!dbUser) {
-        if (user) {
-          token.id = user?.id;
+        if (dbAdmin) {
+          token.adminId = dbAdmin.adminId;
+          token.username = dbAdmin.username;
+          token.role = dbAdmin.role;
         }
-        return token;
       }
-
-      return {
-        id: dbUser.id,
-        email: dbUser.email,
-        firstName: dbUser.firstName,
-        lastName: dbUser.lastName,
-      };
+      return token;
     },
   },
   secret: process.env.NEXTAUTH_SECRET,
