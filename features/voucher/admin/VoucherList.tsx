@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Voucher } from "@/app/lib/types/types";
-import { MoreHorizontal } from "lucide-react";
+import { Admin, Voucher } from "@/app/lib/types/types";
+import { ChevronRight, MoreHorizontal } from "lucide-react";
 import { VoucherDelete } from "../api/VoucherDelete";
 
 import {
@@ -22,14 +22,32 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { DialogClose } from "@radix-ui/react-dialog";
+import Link from "next/link";
 
-const VoucherList = ({ vouchers }: { vouchers: Voucher[] }) => {
+const VoucherList = ({
+  vouchers,
+  admin,
+}: {
+  vouchers: Voucher[];
+  admin: Admin;
+}) => {
   return (
-    <div className="px-10 py-5 col-span-2 space-y-5 h-screen overflow-scroll">
-      <h2 className="text-2xl font-medium font-teko">VoucherList</h2>
+    <div className="px-10 py-5 col-start-2 col-span-full space-y-5 h-screen overflow-scroll">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-medium font-teko">Voucher List</h2>
+        {admin && admin.role === "master" && (
+          <Link
+            href={"/admin-dashboard/voucher/archive"}
+            className="flex items-center gap-x-1 bg-blue-50 hover:bg-stone-100 duration-300 px-4 py-2 rounded-lg text-sm"
+          >
+            Archive Vouchers <ChevronRight className="h-4 w-4" />
+          </Link>
+        )}
+      </div>
+
       <section className="w-full grid grid-cols-1 gap-y-2">
         {vouchers.map((voucher: Voucher) => (
-          <VoucherCard key={voucher.id} voucher={voucher} />
+          <VoucherCard key={voucher.id} voucher={voucher} admin={admin} />
         ))}
       </section>
     </div>
@@ -38,15 +56,21 @@ const VoucherList = ({ vouchers }: { vouchers: Voucher[] }) => {
 
 export default VoucherList;
 
-export const VoucherCard = ({ voucher }: { voucher: Voucher }) => {
+export const VoucherCard = ({
+  voucher,
+  admin,
+}: {
+  voucher: Voucher;
+  admin: Admin;
+}) => {
   const [loading, setLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const handleDeleteVoucher = async (voucherCode: string) => {
+  const handleDeleteVoucher = async (voucherCode: string, adminId: string) => {
     setLoading(true);
 
-    if (voucherCode) {
-      await VoucherDelete(voucherCode);
+    if (voucherCode && adminId) {
+      await VoucherDelete(voucherCode, adminId);
       setLoading(false);
     }
   };
@@ -83,58 +107,62 @@ export const VoucherCard = ({ voucher }: { voucher: Voucher }) => {
         </p>
       </div>
 
-      <div className="relative flex justify-end items-center">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+      {admin && admin.role === "master" && (
+        <div className="relative flex justify-end items-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
 
-            <DropdownMenuSeparator />
+              <DropdownMenuSeparator />
 
-            <DropdownMenuItem onClick={() => setIsDialogOpen(true)}>
-              Delete Voucher
-            </DropdownMenuItem>
-          </DropdownMenuContent>
+              <DropdownMenuItem onClick={() => setIsDialogOpen(true)}>
+                Delete Voucher
+              </DropdownMenuItem>
+            </DropdownMenuContent>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Delete Voucher - {voucher.code}</DialogTitle>
-                <DialogDescription className="text-center">
-                  This action cannot be undone. This will permanently delete the
-                  voucher and remove the voucher from our servers.
-                </DialogDescription>
-              </DialogHeader>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Delete Voucher - {voucher.code}</DialogTitle>
+                  <DialogDescription className="text-center">
+                    This action cannot be undone. This will permanently delete
+                    the voucher and remove the voucher from our servers.
+                  </DialogDescription>
+                </DialogHeader>
 
-              <section className="flex gap-x-6 px-10">
-                <DialogClose asChild>
+                <section className="flex gap-x-6 px-10">
+                  <DialogClose asChild>
+                    <Button
+                      type="button"
+                      className="rounded-md bg-gray-300"
+                      disabled={loading}
+                    >
+                      No
+                    </Button>
+                  </DialogClose>
+
                   <Button
                     type="button"
-                    className="rounded-md bg-gray-300"
+                    className="bg-red-500 text-white rounded-md hover:bg-red-600"
+                    onClick={() =>
+                      handleDeleteVoucher(voucher.code, admin.adminId)
+                    }
                     disabled={loading}
                   >
-                    No
+                    Yes, delete it.
                   </Button>
-                </DialogClose>
-
-                <Button
-                  type="button"
-                  className="bg-red-500 text-white rounded-md hover:bg-red-600"
-                  onClick={() => handleDeleteVoucher(voucher.code)}
-                  disabled={loading}
-                >
-                  Yes, delete it.
-                </Button>
-              </section>
-            </DialogContent>
-          </Dialog>
-        </DropdownMenu>
-      </div>
+                </section>
+              </DialogContent>
+            </Dialog>
+          </DropdownMenu>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { Admin } from "@/app/lib/types/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -33,7 +34,11 @@ const formSchema = z.object({
     .min(6, {
       message: "Code must be at least 6 characters.",
     })
-    .max(12, { message: "Voucher code must be not more than 10 characters." }),
+    .max(12, { message: "Voucher code must be not more than 10 characters." })
+    .regex(/^[a-zA-Z\s'-]+$/, {
+      message:
+        "Voucher code can only contain letters, spaces, hyphens, and apostrophes.",
+    }),
   discountAmount: z.string(),
   discountPercent: z.string(),
   expiryDate: z.date({
@@ -41,7 +46,7 @@ const formSchema = z.object({
   }),
 });
 
-const VoucherForm = () => {
+const VoucherForm = ({ admin }: { admin: Admin }) => {
   const [isSubmit, setIsSubmit] = useState(false);
   const [message, setMessage] = useState("Create Voucher");
 
@@ -65,6 +70,7 @@ const VoucherForm = () => {
         discountAmount: Number(values.discountAmount),
         discountPercent: Number(values.discountPercent),
         expiryDate: values.expiryDate,
+        adminId: admin.adminId,
         isActive: true,
       };
 
