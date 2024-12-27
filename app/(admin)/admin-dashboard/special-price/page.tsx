@@ -1,12 +1,12 @@
 import { getCurrentUser } from "@/lib/session";
-import { getAllConfirmedReservation } from "@/features/reservation/api/route";
+import { ReservationSpecialDate } from "@/features/reservation/api/ReservationFetch";
 import { SpecialPriceFetch } from "@/features/specialDate/api/SpecialPriceFetch";
 
 import SpecialPriceForm from "@/features/specialDate/admin/SpecialPriceForm";
 import SpecialDateList from "@/features/specialDate/admin/SpecialDateList";
 
 const Page = async () => {
-  const reservations = await getAllConfirmedReservation();
+  const reservations = await ReservationSpecialDate();
   const specialPrices = await SpecialPriceFetch();
   const admin = await getCurrentUser();
 
