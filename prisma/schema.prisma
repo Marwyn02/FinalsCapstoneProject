@@ -20,17 +20,22 @@ model Admin {
   password String
   email String 
   role String
-  loggedIn DateTime
+  loggedIn DateTime?
+  loggedOut DateTime?
+  isDeleted Boolean @default(false)
   createdAt DateTime @default(now())
+  audit Audit[]
   addedReplies    Reply[] @relation("AddedByAdmin")
   addedReviews Review[] @relation("AddedByAdmin")
   addedVouchers Voucher[] @relation("AddedByAdmin")
   addedSpecialPrices SpecialPrice[] @relation("AddedByAdmin")
+  addedImage Image[] @relation("AddedByAdmin")
   removedReservation Reservation[] @relation("RemovedByAdmin")
   removedReviews  Review[]  @relation("RemovedByAdmin")
   removedReplies  Reply[]  @relation("RemovedByAdmin")
   removedVouchers  Voucher[]  @relation("RemovedByAdmin")
   removedSpecialPrices SpecialPrice[] @relation("RemovedByAdmin")
+   removedImage Image[] @relation("RemovedByAdmin")
 }
 
 model Reservation {
@@ -78,8 +83,8 @@ model Review {
   addedByAdmin  Admin?   @relation("AddedByAdmin", fields: [addedBy], references: [adminId])
   removedBy       String?
   removedByAdmin  Admin?   @relation("RemovedByAdmin", fields: [removedBy], references: [adminId])
-  reservationId String @unique
-  reservation Reservation @relation(fields: [reservationId], references: [reservationId])
+  reservationId String? @unique
+  reservation Reservation? @relation(fields: [reservationId], references: [reservationId])
   reply          Reply? 
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
@@ -127,6 +132,7 @@ model SpecialPrice {
   id String @id @default(uuid())
   date DateTime @unique
   price Int
+  isDeleted Boolean @default(false)
   isActive Boolean @default(true)
   addedBy        String? 
   addedByAdmin  Admin?   @relation("AddedByAdmin", fields: [addedBy], references: [adminId])
@@ -140,6 +146,7 @@ model Voucher {
   discountAmount Int?   
   discountPercent Int?   
   expiryDate     DateTime? 
+  isDeleted Boolean @default(false)
   isActive       Boolean   @default(true) 
   addedBy        String? 
   addedByAdmin  Admin?   @relation("AddedByAdmin", fields: [addedBy], references: [adminId])
@@ -154,5 +161,43 @@ model Subsriber {
   email String @unique
   createdAt DateTime @default(now())
   removedBy      String?  @unique
+}
+
+model Image {
+  id        Int    @id @default(autoincrement())
+  author    String
+  url       String @unique
+  publicId  String
+  fileName  String
+  status    String
+  isDeleted Boolean @default(false)
+  addedBy        String? 
+  addedByAdmin  Admin?   @relation("AddedByAdmin", fields: [addedBy], references: [adminId])
+  removedBy       String?
+  removedByAdmin  Admin?   @relation("RemovedByAdmin", fields: [removedBy], references: [adminId])
+  createdAt DateTime @default(now())
+}
+
+model Audit {
+  id           Int   @id @default(autoincrement()) 
+  auditId      String @unique
+  timestamp    DateTime @default(now())    
+  username     String
+  adminId      String?
+  admin        Admin? @relation(fields: [adminId], references: [adminId])
+  action       String   
+  resourceType String?  
+  resourceId   String?  
+  details      Json?    
+  ipAddress    String?   
+  sessionId    String?  
+}
+
+model Otp {
+  id         Int      @id @default(autoincrement())
+  email      String
+  code       String @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
 }
 
