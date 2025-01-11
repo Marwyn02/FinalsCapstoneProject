@@ -27,7 +27,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { SpecialPriceCreate } from "@/features/specialDate/api/SpecialPriceCreate";
-import { SpecialPrice } from "@/app/lib/types/types";
+import { Admin, Reservation, SpecialPrice } from "@/app/lib/types/types";
 
 const formSchema = z.object({
   date: z.date({
@@ -41,8 +41,12 @@ const formSchema = z.object({
 
 const SpecialPriceForm = ({
   specialPrice,
+  reservations,
+  admin,
 }: {
   specialPrice: SpecialPrice[];
+  reservations: Reservation[];
+  admin: Admin;
 }) => {
   const [isSubmit, setIsSubmit] = useState(false);
   const [disabledDate, setDisabledDate] = useState<Date[]>([]);
@@ -63,6 +67,7 @@ const SpecialPriceForm = ({
         id: uuid,
         date: values.date,
         price: Number(values.price),
+        adminId: admin.adminId,
       };
       setIsSubmit(false);
 
@@ -86,16 +91,20 @@ const SpecialPriceForm = ({
   // Side effect the disable dates
   useEffect(() => {
     const fetchSpecialDates = async () => {
-      try {
-        // Map over the specialPrice array to extract the `date` field
-        const disabledDatesArray = specialPrice.map(
-          (item) => new Date(item.date)
-        );
+      const disabledDatesArray = reservations
+        .filter((reservation) => reservation.status !== "canceled")
+        .flatMap(({ checkIn, checkOut }) => {
+          const dates = [];
+          let currentDate = new Date(checkIn);
 
-        setDisabledDate(disabledDatesArray);
-      } catch (error) {
-        console.error("Error processing special price dates: ", error);
-      }
+          while (currentDate <= checkOut) {
+            dates.push(new Date(currentDate));
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+
+          return dates;
+        });
+      setDisabledDate(disabledDatesArray);
     };
 
     fetchSpecialDates();
@@ -162,7 +171,9 @@ const SpecialPriceForm = ({
                         };
 
                         if (
-                          disabledDate.some((dates) => isSameDay(date, dates))
+                          disabledDate.some((disabled) =>
+                            isSameDay(date, disabled)
+                          )
                         ) {
                           return true;
                         }
