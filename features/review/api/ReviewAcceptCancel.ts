@@ -24,7 +24,7 @@ export async function ReviewCancel(reviewId: string, adminId: string) {
     await prisma.review.update({
       where: { reviewId },
       data: {
-        status: "cancelled",
+        status: "canceled",
         removedBy: adminId,
       },
     });

@@ -27,7 +27,12 @@ export async function ReviewRestore(reviewId: string) {
     where: {
       reviewId,
     },
-    data: { removedBy: null, isDeleted: false, deletedAt: null },
+    data: {
+      removedBy: null,
+      isDeleted: false,
+      status: "confirmed",
+      deletedAt: null,
+    },
   });
 
   revalidatePath("/admin-dashboard/reviews");

@@ -26,7 +26,12 @@ export async function ReviewDelete(reviewId: string, adminId: string) {
     where: {
       reviewId,
     },
-    data: { removedBy: adminId, isDeleted: true, deletedAt: new Date() },
+    data: {
+      removedBy: adminId,
+      isDeleted: true,
+      status: "deleted",
+      deletedAt: new Date(),
+    },
   });
 
   revalidatePath("/admin-dashboard/reviews");
