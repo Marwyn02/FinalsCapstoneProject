@@ -5,11 +5,14 @@ import React from "react";
 
 const ServicesPage = () => {
   return (
-    <section className="mx-24 pt-12 pb-24">
-      <h1 className="text-5xl font-medium font-teko px-10">
-        Services we offer.
-      </h1>
-      <div className="grid grid-cols-2 gap-x-10 mt-5 px-10">
+    <section className="md:mx-24 pt-24 md:pb-24">
+      <div className="-space-y-1 px-5 md:px-10">
+        <h1 className="text-4xl font-medium font-teko">
+          Experience the Comfort of Home
+        </h1>
+        <p>Your Serene Retreat, Enhanced by Our Services</p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 md:gap-x-10 mt-5 md:px-10">
         <div className="bg-white rounded-b-lg">
           <Image
             src={"/image/laundry.jpg"}
