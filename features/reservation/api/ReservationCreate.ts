@@ -45,7 +45,7 @@ export async function ReservationCreate(values: ReservationCreate) {
   });
   if (!checkReservationId) {
     if (values.firstName !== "") {
-      const response = await prisma.reservation.create({
+      await prisma.reservation.create({
         data: {
           reservationId,
           prefix,

@@ -3,13 +3,12 @@
 
 import React, { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
+import axios from "axios";
 import { useForm } from "react-hook-form";
 import useStore from "@/app/store/store";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { LoaderCircle } from "lucide-react";
-import { ReservationCreate } from "../api/ReservationCreate";
-import { EmailSender } from "@/app/utils/EmailSender";
 import { SendOTP } from "@/app/api/otp/SendOTP";
 import { verifyOTP } from "@/app/api/otp/VerifyOTP";
 
@@ -37,25 +36,6 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
-
-type GcashReservation = {
-  prefix: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phoneNumber: string;
-  modeOfPayment: string;
-  payment: string;
-  downpayment: string;
-  reservationId: string;
-  adult: string;
-  children: string;
-  pwd: string;
-  checkIn: Date;
-  checkOut: Date;
-  nights?: number;
-  status: string;
-};
 
 const formSchema = z.object({
   prefix: z.string({ message: "Must choose your prefix." }),
@@ -139,95 +119,6 @@ const ReservationPaymentForm = () => {
     resolver: zodResolver(pinSchema),
   });
 
-  const publicKey = process.env.NEXT_PUBLIC_PAYMONGO_PUBLIC;
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-
-  const createSource = async ({
-    reservationId,
-    name,
-    phone,
-    email,
-  }: {
-    reservationId: string;
-    name: string;
-    phone: string;
-    email: string;
-  }) => {
-    const reservationHalfPrice = bookingTotalPrice / 2;
-    const options = {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        Authorization: `Basic ${Buffer.from(publicKey!).toString("base64")}`,
-      },
-      body: JSON.stringify({
-        data: {
-          attributes: {
-            amount: reservationHalfPrice * 100,
-            redirect: {
-              success: `${baseUrl}/reservation-success/${reservationId}`,
-              failed: `${baseUrl}`,
-            },
-            billing: { name: `${name}`, phone: `${phone}`, email: `${email}` },
-            type: "gcash",
-            currency: "PHP",
-          },
-        },
-      }),
-    };
-    return fetch("https://api.paymongo.com/v1/sources", options)
-      .then((response) => response.json())
-      .then((response) => {
-        return response;
-      })
-      .catch((err) => console.error(err));
-  };
-
-  // Function to Listen to the Source in the Front End
-  const listenToPayment = async (
-    sourceId: string,
-    paymentValues: GcashReservation
-  ) => {
-    const checkInterval = 10000;
-    let remainingAttempts = 10;
-
-    while (remainingAttempts > 0) {
-      await new Promise((resolve) => setTimeout(resolve, checkInterval));
-      // Fetch the source data
-      const response = await fetch(
-        "https://api.paymongo.com/v1/sources/" + sourceId,
-        {
-          headers: {
-            Authorization: `Basic ${Buffer.from(publicKey!).toString(
-              "base64"
-            )}`,
-          },
-        }
-      );
-      const sourceData = await response.json();
-
-      if (sourceData.data.attributes.status === "failed") {
-        break;
-      } else if (sourceData.data.attributes.status === "paid") {
-        await ReservationCreate(paymentValues);
-        await EmailSender({
-          email: paymentValues.email,
-          name: paymentValues.firstName + " " + paymentValues.lastName,
-          link: `${baseUrl}/reservation-success/${paymentValues.reservationId}`,
-          reservationId: paymentValues.reservationId,
-          checkInDate: new Date(checkInDate),
-          checkOutDate: new Date(checkOutDate),
-          totalPrice: (bookingTotalPrice / 2).toString(),
-        });
-        break;
-      } else {
-        remainingAttempts = 10;
-      }
-      remainingAttempts -= 1;
-    }
-  };
-
   async function onSubmit(data: z.infer<typeof formSchema>) {
     if (data.tnc !== true) return;
 
@@ -237,12 +128,10 @@ const ReservationPaymentForm = () => {
       const prefix = "";
       data.prefix = prefix;
     }
-
     // Show OTP Input UI
     setOtpUIVisible(true);
 
     const otpResponse = await SendOTP(data.email);
-
     if (!otpResponse.ok) {
       console.error("Failed to send OTP");
       setOtpUIVisible(false);
@@ -256,7 +145,7 @@ const ReservationPaymentForm = () => {
     if (!personalDetails) {
       return;
     }
-    const uuid = uuidv4().slice(0, 13).toUpperCase();
+
     if (data.pin) {
       const response = await verifyOTP(data.pin);
 
@@ -266,54 +155,38 @@ const ReservationPaymentForm = () => {
 
         // Check if the user selected GCash as the payment method
         if (bookingTotalPrice > 0) {
-          const fullname = `${personalDetails.firstName} ${personalDetails.lastName}`;
+          const reservationId = uuidv4().slice(0, 13).toUpperCase();
 
-          // Create the payment source for PayMongo
-          const source = await createSource({
-            reservationId: uuid,
-            name: fullname,
-            phone: personalDetails.contactNumber,
+          const reservationData = {
+            reservationId,
+            prefix: personalDetails.prefix,
+            firstName: personalDetails.firstName,
+            lastName: personalDetails.lastName,
             email: personalDetails.email,
-          });
+            phoneNumber: personalDetails.contactNumber,
+            checkIn: new Date(checkInDate),
+            checkOut: new Date(checkOutDate),
+            adult: adultNumberGuest.toString(),
+            children: childrenNumberGuest.toString(),
+            pwd: pwdNumberGuest.toString(),
+            downpayment: (bookingTotalPrice / 2).toString(),
+            payment: (bookingTotalPrice / 2).toString(),
+            status: "confirmed",
+          };
 
-          const isMobile = /iPhone|iPad|iPod|Android/i.test(
-            navigator.userAgent
-          );
-
-          if (source) {
-            const checkoutUrl = source.data.attributes.redirect.checkout_url;
-
-            if (isMobile) {
-              // Redirect in the same tab for mobile devices
-              window.open(checkoutUrl, "_blank");
-            } else {
-              // Open the PayMongo checkout URL
-              const openPaymongo = window.open(checkoutUrl, "_blank");
-
-              if (!openPaymongo) {
-                // Fallback if popup is blocked
-                window.location.href = checkoutUrl;
-              }
-            }
-
-            // Listen to payment status
-            await listenToPayment(source.data.id, {
-              reservationId: uuid,
-              prefix: personalDetails.prefix,
-              firstName: personalDetails.firstName,
-              lastName: personalDetails.lastName,
-              email: personalDetails.email,
-              phoneNumber: personalDetails.contactNumber,
-              modeOfPayment: "GCash",
-              checkIn: new Date(checkInDate),
-              checkOut: new Date(checkOutDate),
-              adult: adultNumberGuest.toString(),
-              children: childrenNumberGuest.toString(),
-              pwd: pwdNumberGuest.toString(),
-              downpayment: (bookingTotalPrice / 2).toString(),
-              payment: (bookingTotalPrice / 2).toString(),
-              status: "confirmed",
+          try {
+            const response = await axios.post("/api/payment", {
+              amount: Number((bookingTotalPrice / 2) * 100), // Amount in cents (e.g., 30000 = 300.00 PHP)
+              currency: "PHP",
+              description:
+                "Downpayment for reservation at Crisanto Transient House",
+              metadata: reservationData,
             });
+
+            const checkoutUrl = response.data.checkoutUrl;
+            window.open(checkoutUrl, "_blank");
+          } catch (error) {
+            console.error("Error creating checkout session:", error);
           }
         }
       }
