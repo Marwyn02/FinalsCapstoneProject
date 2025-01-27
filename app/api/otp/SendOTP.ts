@@ -3,57 +3,48 @@
 import prisma from "@/lib/db";
 import nodemailer from "nodemailer";
 
-let otps = new Map(); // Use Redis or database in production
-
 export const SendOTP = async (email: string) => {
+  // Generate a 6-digit OTP
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  otps.set(email, otp);
 
-  // Set expiry for OTP
-  setTimeout(() => otps.delete(email), 300000); // 5 minutes
+  // Set OTP expiration time (5 minutes)
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
   // Save OTP to the database
-  await prisma.otp.create({
-    data: {
-      email,
-      code: otp,
-      expiresAt,
-    },
-  });
+  try {
+    await prisma.otp.create({
+      data: {
+        email,
+        code: otp,
+        expiresAt,
+      },
+    });
+  } catch (dbError: any) {
+    return { ok: false, message: `Database error: ${dbError.message}` };
+  }
 
-  // Send OTP via email
+  // Configure Nodemailer
   const transporter = nodemailer.createTransport({
     service: "gmail",
-
     auth: {
-      user: process.env.MY_EMAIL,
-      pass: process.env.MY_PASSWORD,
+      user: process.env.MY_EMAIL, // Your Gmail address
+      pass: process.env.MY_PASSWORD, // Use an App Password if using Gmail
     },
   });
 
-  const mailOptions = await transporter.sendMail({
+  // Email options
+  const mailOptions = {
     from: "no-reply@yourdomain.com",
     to: email,
     subject: "Your OTP Code",
-    text: `Your OTP code is: ${otp}`,
-  });
+    text: `Your OTP code is: ${otp}\nThis code will expire in 5 minutes.`,
+  };
 
-  const sendMailPromise = () =>
-    new Promise<string>((resolve, reject) => {
-      transporter.sendMail(mailOptions, function (err) {
-        if (!err) {
-          resolve("Email sent");
-        } else {
-          reject(err.message);
-        }
-      });
-    });
-
+  // Send email
   try {
-    await sendMailPromise();
+    await transporter.sendMail(mailOptions);
     return { ok: true, message: "Email sent!" };
-  } catch (err) {
-    return { ok: false, message: `Error email, ${err}` };
+  } catch (emailError: any) {
+    return { ok: false, message: `Email sending error: ${emailError.message}` };
   }
 };

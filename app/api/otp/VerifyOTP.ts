@@ -11,17 +11,11 @@ export async function verifyOTP(otp: string) {
   });
 
   if (!otpRecord) {
-    return { status: 400, message: "Invalid or expired OTP" };
+    return { status: 400, message: "Invalid or expired OTP", ok: false };
   }
-  // try {
-  //   await sendMailPromise();
-  //   return { ok: true, message: "Email sent!" };
-  // } catch (err) {
-  //   return { ok: false, message: `Error email, ${err}` };
-  // }
 
   // Optionally, delete the OTP after successful verification
   await prisma.otp.delete({ where: { id: otpRecord.id } });
 
-  return { status: 200, message: "OTP verified successfully" };
+  return { status: 200, message: "OTP verified successfully", ok: true };
 }
