@@ -57,7 +57,6 @@ export async function ReservationSetComplete(
       profitId: profit.profitId,
       profit: Number(reservation.payment),
       bookings: 1,
-      state: "suddenPayment",
     };
 
     await ProfitUpdate(values);

@@ -1,11 +1,6 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-
-// import { withAccelerate } from "@prisma/extension-accelerate";
-// const prisma = new PrismaClient().$extends(withAccelerate());
 
 export async function createReservation(values: any) {
   const {
@@ -26,39 +21,34 @@ export async function createReservation(values: any) {
     status,
   } = values;
 
-  try {
-    const checkReservationId = await prisma.reservation.findUnique({
-      where: {
-        reservationId,
-      },
-    });
+  const checkReservationId = await prisma.reservation.findUnique({
+    where: {
+      reservationId,
+    },
+  });
 
-    if (!checkReservationId) {
-      if (values.firstName !== "") {
-        await prisma.reservation.create({
-          data: {
-            reservationId,
-            prefix,
-            firstName,
-            lastName,
-            email,
-            phoneNumber,
-            modeOfPayment,
-            checkIn,
-            checkOut,
-            adult,
-            children,
-            pwd,
-            downpayment,
-            payment,
-            status,
-          },
-        });
-      }
+  if (!checkReservationId) {
+    if (values.firstName !== "") {
+      await prisma.reservation.create({
+        data: {
+          reservationId,
+          prefix,
+          firstName,
+          lastName,
+          email,
+          phoneNumber,
+          modeOfPayment,
+          checkIn,
+          checkOut,
+          adult,
+          children,
+          pwd,
+          downpayment,
+          payment,
+          status,
+        },
+      });
     }
-  } catch (error) {
-    console.error("Error in reservation creation: ", error);
-    return { success: false, message: error };
   }
 }
 
@@ -74,13 +64,8 @@ export async function ReservationFetchOne(reservationId: string) {
   return reservation;
 }
 
-// export async function ReservationFetchAll() {
-//   const reservation = await prisma.reservation.findMany();
-
-//   return reservation;
-// }
-
 // Get all reservations that is not pending
+// Past getAllConfirmedReservation
 export async function ReservationFetchAll() {
   const reservation = await prisma.reservation.findMany({
     where: {
