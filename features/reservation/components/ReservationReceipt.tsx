@@ -107,7 +107,7 @@ const ReservationReceipt = ({
                   <p className="text-gray-600">{reservation?.reservationId}</p>
                 </div>
                 <div className="order-1 md:order-2 text-start md:text-end">
-                  <p className="font-semibold text-green-800">
+                  <p className="font-semibold text-green-800 uppercase">
                     {reservation?.modeOfPayment}
                   </p>
                   <p className="text-gray-500">

@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import useStore from "@/app/store/store";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
-import { LoaderCircle } from "lucide-react";
+import { Check, LoaderCircle } from "lucide-react";
 import { SendOTP } from "@/app/api/otp/SendOTP";
 import { verifyOTP } from "@/app/api/otp/VerifyOTP";
 
@@ -106,7 +106,8 @@ const ReservationPaymentForm = () => {
   } = useStore();
   const [isSubmit, setIsSubmit] = useState<boolean>(false);
   const [emailSent, setEmailSent] = useState<boolean>(false);
-  const [otpUiVisible, setOtpUIVisible] = useState(false);
+  const [otpUiVisible, setOtpUIVisible] = useState<boolean>(false);
+  const [pinConfirm, setPinConfirm] = useState<boolean>(false);
   const [personalDetails, setPersonalDetails] = useState<z.infer<
     typeof formSchema
   > | null>(null);
@@ -117,6 +118,7 @@ const ReservationPaymentForm = () => {
 
   const pinForm = useForm<z.infer<typeof pinSchema>>({
     resolver: zodResolver(pinSchema),
+    mode: "onBlur",
   });
 
   async function onSubmit(data: z.infer<typeof formSchema>) {
@@ -141,7 +143,6 @@ const ReservationPaymentForm = () => {
   }
 
   const onPinSubmit = async (data: z.infer<typeof pinSchema>) => {
-    setIsSubmit(true);
     if (!personalDetails) {
       return;
     }
@@ -149,9 +150,9 @@ const ReservationPaymentForm = () => {
     if (data.pin) {
       const response = await verifyOTP(data.pin);
 
-      if (response) {
+      if (response.ok) {
         // OTP is valid
-        alert("OTP verified successfully!");
+        setPinConfirm(true);
 
         // Check if the user selected GCash as the payment method
         if (bookingTotalPrice > 0) {
@@ -189,6 +190,13 @@ const ReservationPaymentForm = () => {
             console.error("Error creating checkout session:", error);
           }
         }
+      } else {
+        console.log("Invalid OTP");
+
+        pinForm.setError("pin", {
+          type: "manual",
+          message: "Invalid one-time password. Please try again.",
+        });
       }
     }
   };
@@ -243,8 +251,14 @@ const ReservationPaymentForm = () => {
                   )}
                 />
 
-                <Button type="submit" disabled={isSubmit}>
-                  {isSubmit ? (
+                <Button
+                  type="submit"
+                  disabled={isSubmit || pinConfirm}
+                  className={`${pinConfirm ? "bg-green-500" : ""}`}
+                >
+                  {pinConfirm ? (
+                    <Check className="h-4 w-4" />
+                  ) : isSubmit ? (
                     <LoaderCircle className="h-4 w-4 animate-spin" />
                   ) : (
                     "Submit"
@@ -252,6 +266,15 @@ const ReservationPaymentForm = () => {
                 </Button>
               </form>
             </Form>
+
+            <div className="bg-gray-100 p-5 rounded-md w-full">
+              <p>
+                After entering the PIN code or OTP, you will be redirected to
+                the payment page. Please wait and ensure your payment is
+                completed to confirm your reservation. Thank you for your
+                patience!
+              </p>
+            </div>
           </div>
         ) : (
           <form
