@@ -12,7 +12,7 @@ export const createCheckoutSession = async (
   const reservationId = metadata.reservationId;
 
   const success_url = `${BASE_URL}/reservation-success/${reservationId}`;
-  const cancel_url = "https://facebook.com";
+  const cancel_url = `${BASE_URL}`;
 
   try {
     const response = await axios.post(
