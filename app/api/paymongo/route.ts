@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ReservationCreate } from "@/features/reservation/api/ReservationCreate";
 
 // Setup for paymongo!
 
@@ -9,44 +10,71 @@ import { NextResponse } from "next/server";
 // Set the ngrok url / api / paymongo - which is the file path of your paymongo webhook api (which is this one).
 
 // Step 3: Set events attribute:
-// source.chargeable, payment.paid, payment.failed
+// source.chargeable, payment.paid, payment.failed, checkout_session.payment.paid
 
 // And you're done!
 
 export async function POST(req: Request) {
-  const { data } = await req.json();
-  if (data.attributes.type === "source.chargeable") {
-    const options = {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        Authorization: `Basic ${Buffer.from(
-          process.env.PAYMONGO_SECRET!
-        ).toString("base64")}`,
-      },
-      body: JSON.stringify({
-        data: {
-          attributes: {
-            amount: data.attributes.data.attributes.amount,
-            source: {
-              id: `${data.attributes.data.id}`,
-              type: `${data.attributes.data.type}`,
-            },
-            description: data.attributes.data.attributes.description,
-            currency: "PHP",
-            statement_descriptor:
-              data.attributes.data.attributes.statement_descriptor,
-          },
-        },
-      }),
-    };
-    fetch("https://api.paymongo.com/v1/payments", options)
-      .then((response) => response.json())
-      .then((response) => console.log(response))
-      .catch((err) => console.error(err));
+  try {
+    const { data } = await req.json();
+
+    switch (data.attributes.type) {
+      case "checkout_session.payment.paid":
+        await handleCheckoutSessionPaymentPaid(data);
+        break;
+      case "payment.paid":
+        await handlePaymentPaid(data);
+        break;
+      case "payment.failed":
+        await handlePaymentFailure(data);
+        break;
+      default:
+        console.warn(`Unhandled event type: ${data.attributes.type}`);
+    }
+
+    return NextResponse.json({ message: "Webhook Received" }, { status: 200 });
+  } catch (error) {
+    console.error("Error processing webhook:", error);
+    return NextResponse.json(
+      { error: "Webhook processing failed" },
+      { status: 500 }
+    );
   }
-  return NextResponse.json({ message: "Webhook Received" }, { status: 200 });
+}
+
+async function handleCheckoutSessionPaymentPaid(data: any) {
+  const { attributes } = data.attributes.data;
+
+  const paymentMethodUsed = attributes.payment_method_used;
+
+  const reservationData = {
+    reservationId: attributes.metadata.reservationId,
+    prefix: attributes.metadata.prefix,
+    firstName: attributes.metadata.firstName,
+    lastName: attributes.metadata.lastName,
+    email: attributes.metadata.email,
+    phoneNumber: attributes.metadata.phoneNumber,
+    modeOfPayment: paymentMethodUsed,
+    checkIn: new Date(attributes.metadata.checkIn),
+    checkOut: new Date(attributes.metadata.checkOut),
+    adult: attributes.metadata.adult,
+    children: attributes.metadata.children,
+    pwd: attributes.metadata.pwd,
+    downpayment: attributes.metadata.downpayment,
+    payment: attributes.metadata.payment,
+    status: attributes.metadata.status,
+  };
+  await ReservationCreate(reservationData);
+}
+
+async function handlePaymentPaid(data: any) {
+  // Handle payment success logic here
+  // For example, update your database with the payment status
+}
+
+async function handlePaymentFailure(data: any) {
+  // Handle payment failure logic here
+  // For example, update your database with the payment status
 }
 
 export async function GET() {
