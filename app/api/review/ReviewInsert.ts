@@ -2,10 +2,9 @@
 
 import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 type ReviewInsert = {
-  reviewId: string;
+  reviewId?: string;
   firstName: string;
   lastName: string;
   message: string;
@@ -15,6 +14,8 @@ type ReviewInsert = {
   cleanliness: string;
   location: string;
   comfort: string;
+  status: string;
+  reservationId?: string;
 };
 
 export default async function ReviewInsert(values: ReviewInsert) {
@@ -29,30 +30,89 @@ export default async function ReviewInsert(values: ReviewInsert) {
     cleanliness,
     location,
     comfort,
+    status,
+    reservationId,
   } = values;
-  try {
-    if (reviewId !== "") {
-      await prisma.review.create({
-        data: {
-          reviewId,
-          firstName,
-          lastName,
-          message,
-          staff,
-          valueForMoney,
-          facilities,
-          cleanliness,
-          location,
-          comfort,
-        },
-      });
 
-      revalidatePath("/admin-dashboard");
+  if (reviewId && reservationId) {
+    const reservation = await prisma.reservation.findUnique({
+      where: {
+        reservationId,
+      },
+      include: {
+        review: true,
+      },
+    });
+
+    if (!reservation) {
+      throw new Error("Reservation not found.");
     }
-  } catch (error) {
-    console.error("Error in review creation: ", error);
-    return { success: false, message: error };
-  } finally {
-    redirect("/admin-dashboard");
+
+    // Check if a review already exists
+    if (reservation.review) {
+      return { success: false, message: "Review already exist." };
+    }
+
+    const getRatingAverage =
+      (Number(staff) +
+        Number(valueForMoney) +
+        Number(facilities) +
+        Number(cleanliness) +
+        Number(location) +
+        Number(comfort)) /
+      6;
+
+    const response = await prisma.review.create({
+      data: {
+        reviewId,
+        firstName,
+        lastName,
+        message,
+        rating: getRatingAverage.toFixed(1).toString(),
+        staff,
+        valueForMoney,
+        facilities,
+        cleanliness,
+        location,
+        comfort,
+        status, // pending
+        reservationId,
+      },
+    });
+
+    if (response) {
+      revalidatePath(`/feedback/${reservationId}`);
+    }
+  } else if (reviewId) {
+    const getRatingAverage =
+      (Number(staff) +
+        Number(valueForMoney) +
+        Number(facilities) +
+        Number(cleanliness) +
+        Number(location) +
+        Number(comfort)) /
+      6;
+
+    const response = await prisma.review.create({
+      data: {
+        reviewId,
+        firstName,
+        lastName,
+        message,
+        rating: getRatingAverage.toFixed(1).toString(),
+        staff,
+        valueForMoney,
+        facilities,
+        cleanliness,
+        location,
+        comfort,
+        status, // pending
+        reservationId: null,
+      },
+    });
+
+    if (response) {
+      revalidatePath(`/memories-and-reviews`);
+    }
   }
 }
