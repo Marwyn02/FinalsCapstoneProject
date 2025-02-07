@@ -9,6 +9,24 @@ export const guestCountHandler = (
   setCount(Math.max(minLimit, Math.min(maxLimit, currentCount + countChange)));
 };
 
+export const guestExceedTracker = (
+  currentCount: number,
+  baseLimit: number,
+  extraChargePerHead: number,
+  setBookingPrice: React.Dispatch<React.SetStateAction<number>>
+) => {
+  const excessCount = Math.max(0, currentCount - baseLimit);
+  const totalAdditionalCharge = excessCount * extraChargePerHead;
+
+  setBookingPrice((prevPrice) => {
+    const previousExcessCount = Math.max(0, currentCount - baseLimit - 1); // Adjust for the previous state
+    const previousCharge = previousExcessCount * extraChargePerHead;
+
+    // Update the price by removing the previous excess charge and adding the current one
+    return prevPrice - previousCharge + totalAdditionalCharge;
+  });
+};
+
 // Function to calculate the total nights from check in to check out
 export const computeNights = (checkIn: Date, checkOut: Date) => {
   const timeDifference = checkOut.getTime() - checkIn.getTime();
