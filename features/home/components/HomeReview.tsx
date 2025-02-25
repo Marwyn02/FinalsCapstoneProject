@@ -11,8 +11,6 @@ import {
   calculateOverallAverageRating,
   getRatingText,
 } from "@/app/utils/ReviewHelpers";
-import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
 
 const propertyLabels: Record<keyof Review, string> = {
   staff: "Staff",
@@ -30,6 +28,11 @@ const propertyLabels: Record<keyof Review, string> = {
   reservationId: "",
   createdAt: "",
   updatedAt: "",
+  removedByAdmin: "",
+  rating: "",
+  isDeleted: "",
+  addedByAdmin: "",
+  reply: "",
 };
 
 const HomeReview = ({ reviews }: { reviews: Review[] }) => {
@@ -52,11 +55,23 @@ const HomeReview = ({ reviews }: { reviews: Review[] }) => {
   );
   return (
     <main className="space-b-5">
-      <section className="space-y-10 px-5 md:px-16 md:mt-10 mb-0 md:mb-20 md:mx-24 py-16 md:py-10 md:pb-24 border-b border-gray-800">
+      <section className="space-y-10 px-5 md:px-5 md:mt-10 mb-0 md:mb-20 md:mx-36 py-16 md:py-10 md:pb-24 border-b border-gray-800">
         <div>
-          <h2 className="text-4xl font-medium font-teko">Our Rating</h2>
+          <div className="flex justify-between items-start">
+            <div className="-space-y-1">
+              <h2 className="text-4xl font-medium font-teko">Our Rating</h2>
+              <p>See why our customers love us</p>
+            </div>
+            <div className="-space-y-1">
+              <Link href={"/memories-and-reviews"}>
+                <p className="font-semibold underline text-xs sm:text-sm hover:text-gray-600 duration-300">
+                  View more reviews.
+                </p>
+              </Link>
+            </div>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-5 px-0 py-5">
+          <div className="grid grid-cols-1 md:grid-cols-5 px-0 py-6">
             <div className="md:col-span-2 grid place-items-center md:flex text-center md:text-start md:items-start gap-x-5 gap-y-1 md:gap-y-0">
               {overallAverageRating !== null ? (
                 <Rating
